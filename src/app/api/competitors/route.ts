@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { requireClient } from '@/lib/auth'
 
 export async function GET() {
   const profile = await requireClient()
-  const supabase = await createClient()
+  const supabase = await createAdminClient()
 
   const { data, error } = await supabase
     .from('competitors')
@@ -18,7 +18,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const profile = await requireClient()
-  const supabase = await createClient()
+  const supabase = await createAdminClient()
   const body = await req.json()
 
   const { data, error } = await supabase
