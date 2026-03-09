@@ -4,6 +4,8 @@ import { scrapePrice } from '@/lib/scraper'
 import { sendPriceChangeAlert } from '@/lib/email'
 import type { Product, AlertRule } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 // Protect cron with a secret key
 function isAuthorised(req: NextRequest) {
   const auth = req.headers.get('authorization')
@@ -19,7 +21,6 @@ export async function GET(req: NextRequest) {
   const results = { success: 0, errors: 0, alerts: 0 }
 
   try {
-    // Get all live products with their competitor config
     const { data: products, error } = await supabase
       .from('products')
       .select('*, competitor:competitors(*)')
@@ -30,14 +31,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: 'No live products to scrape', ...results })
     }
 
-    // Process each product
     for (const product of products) {
       const competitor = product.competitor
       if (!competitor?.price_selector) continue
 
       const jobStart = Date.now()
 
-      // Log job start
       const { data: job } = await supabase
         .from('scrape_jobs')
         .insert({ product_id: product.id, status: 'running' })
@@ -55,28 +54,23 @@ export async function GET(req: NextRequest) {
       if (result.price !== null) {
         results.success++
 
-        // Save to price history
         await supabase.from('price_history').insert({
           product_id: product.id,
           price: result.price,
           scrape_duration_ms: duration,
         })
 
-        // Check if price changed
         const oldPrice = product.last_price
         if (oldPrice !== null && oldPrice !== result.price) {
-          // Fire alerts
           const alertCount = await processAlerts(supabase, product, oldPrice, result.price)
           results.alerts += alertCount
         }
 
-        // Update product last price
         await supabase
           .from('products')
           .update({ last_price: result.price, last_scraped_at: new Date().toISOString() })
           .eq('id', product.id)
 
-        // Update job
         if (job) {
           await supabase
             .from('scrape_jobs')
@@ -86,7 +80,6 @@ export async function GET(req: NextRequest) {
       } else {
         results.errors++
 
-        // Update product status to error
         await supabase
           .from('products')
           .update({ status: 'error', last_scraped_at: new Date().toISOString() })
