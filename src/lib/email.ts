@@ -1,9 +1,4 @@
-import { Resend } from 'resend'
 import type { Product, AlertRule } from '@/types'
-
-function getResend() {
-  return new Resend(process.env.RESEND_API_KEY)
-}
 
 interface PriceChangeEmailProps {
   product: Product
@@ -18,6 +13,9 @@ export async function sendPriceChangeAlert({
   oldPrice,
   newPrice,
 }: PriceChangeEmailProps) {
+  const { Resend } = await import('resend')
+  const resend = new Resend(process.env.RESEND_API_KEY)
+
   const changeAmount = newPrice - oldPrice
   const changePercent = ((changeAmount / oldPrice) * 100).toFixed(1)
   const isIncrease = changeAmount > 0
@@ -34,8 +32,6 @@ export async function sendPriceChangeAlert({
 </head>
 <body style="margin:0;padding:0;background:#060810;font-family:'DM Sans',sans-serif;">
   <div style="max-width:560px;margin:40px auto;background:#0d1117;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;">
-    
-    <!-- Header -->
     <div style="padding:28px 32px;border-bottom:1px solid rgba(255,255,255,0.06);background:linear-gradient(135deg,rgba(0,229,160,0.06),transparent);">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
         <div style="width:28px;height:28px;background:#00e5a0;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;">👁</div>
@@ -43,14 +39,10 @@ export async function sendPriceChangeAlert({
       </div>
       <div style="font-size:11px;color:#5a6478;font-family:monospace;letter-spacing:0.05em;text-transform:uppercase;">Price Alert</div>
     </div>
-
-    <!-- Body -->
     <div style="padding:32px;">
       <div style="font-size:13px;color:#8c95a8;margin-bottom:8px;">${direction}</div>
       <div style="font-size:24px;font-weight:800;color:#f0f4ff;letter-spacing:-0.5px;margin-bottom:4px;">${product.name}</div>
       <div style="font-size:12px;font-family:monospace;color:#5a6478;margin-bottom:28px;">${product.url}</div>
-
-      <!-- Price comparison -->
       <div style="background:#060810;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px;margin-bottom:24px;">
         <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center;text-align:center;">
           <div>
@@ -69,15 +61,12 @@ export async function sendPriceChangeAlert({
           </span>
         </div>
       </div>
-
-      <!-- CTA -->
       <div style="text-align:center;margin-bottom:24px;">
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" 
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard"
            style="display:inline-block;background:#00e5a0;color:#060810;font-weight:700;font-size:13px;padding:12px 28px;border-radius:8px;text-decoration:none;">
           View Dashboard →
         </a>
       </div>
-
       <div style="font-size:11px;font-family:monospace;color:#5a6478;text-align:center;">
         You're receiving this because you set up a price alert on PriceSentry.<br>
         <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/alerts" style="color:#5a6478;">Manage alerts</a>
@@ -87,19 +76,18 @@ export async function sendPriceChangeAlert({
 </body>
 </html>`
 
-  const resend = getResend()
-  const result = await resend.emails.send({
+  return resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL!,
     to: alertRule.email,
     subject: `${direction}: ${product.name} is now £${newPrice.toFixed(2)}`,
     html,
   })
-
-  return result
 }
 
 export async function sendAdminNotification(subject: string, message: string) {
-  const resend = getResend()
+  const { Resend } = await import('resend')
+  const resend = new Resend(process.env.RESEND_API_KEY)
+
   await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL!,
     to: process.env.ADMIN_EMAIL!,

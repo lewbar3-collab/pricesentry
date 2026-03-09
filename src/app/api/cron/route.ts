@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { scrapePrice } from '@/lib/scraper'
-import { sendPriceChangeAlert } from '@/lib/email'
 import type { Product, AlertRule } from '@/types'
 
 export const dynamic = 'force-dynamic'
 
-// Protect cron with a secret key
 function isAuthorised(req: NextRequest) {
   const auth = req.headers.get('authorization')
   return auth === `Bearer ${process.env.CRON_SECRET}`
@@ -145,6 +143,8 @@ async function processAlerts(
 
     if (shouldAlert) {
       try {
+        // Dynamic import so Resend only initialises at runtime, not build time
+        const { sendPriceChangeAlert } = await import('@/lib/email')
         await sendPriceChangeAlert({ product, alertRule: rule, oldPrice, newPrice })
 
         const changePercent = ((changeAmount / oldPrice) * 100)
