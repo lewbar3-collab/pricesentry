@@ -33,6 +33,8 @@ export interface Product {
   status: 'pending' | 'live' | 'error' | 'paused'
   last_scraped_at: string | null
   last_price: number | null
+  category: string | null
+  image_url: string | null
   created_at: string
   competitor?: Competitor
 }
