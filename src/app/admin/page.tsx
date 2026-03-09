@@ -8,16 +8,16 @@ export default async function AdminPage() {
 
   const { data: allCompetitors } = await supabase
     .from('competitors')
-    .select('*, products(*), profile:profiles(email, company_name)')
+    .select('*, competitor_products(*), profile:profiles(email, company_name)')
     .order('created_at', { ascending: true })
 
-  const pendingCompetitors = allCompetitors?.filter(c =>
-    !c.price_selector && c.products?.some((p: { status: string }) => p.status === 'pending')
-  ) ?? []
+  // Pending = no selector set yet, AND has at least one competitor_product assigned
+  // OR no selector and was just created (show all unconfigured)
+  const pendingCompetitors = allCompetitors?.filter(c => !c.price_selector) ?? []
 
   const liveCompetitors = allCompetitors?.filter(c => c.price_selector) ?? []
   const errorCompetitors = allCompetitors?.filter(c =>
-    c.products?.some((p: { status: string }) => p.status === 'error')
+    c.competitor_products?.some((cp: { status: string }) => cp.status === 'error')
   ) ?? []
 
   const { count: liveProductCount } = await supabase
@@ -41,7 +41,7 @@ export default async function AdminPage() {
     .limit(12)
 
   const firstPending = pendingCompetitors[0] ?? null
-  const sampleProduct = firstPending?.products?.find((p: { status: string }) => p.status === 'pending') ?? null
+  const sampleProduct = firstPending?.competitor_products?.[0] ?? null
 
   return (
     <div>
@@ -89,8 +89,8 @@ export default async function AdminPage() {
 
           {pendingCompetitors.map((competitor, i) => {
             const isFirst = i === 0
-            const productCount = competitor.products?.length ?? 0
-            const pendingCount = competitor.products?.filter((p: { status: string }) => p.status === 'pending').length ?? 0
+            const productCount = competitor.competitor_products?.length ?? 0
+            const pendingCount = competitor.competitor_products?.filter((cp: { status: string }) => cp.status === 'pending').length ?? 0
             return (
               <div key={competitor.id} style={{ display: 'grid', gridTemplateColumns: '24px 2fr 1.5fr 80px 1fr 60px', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--border)', gap: 12, background: isFirst ? 'rgba(167,139,250,0.04)' : 'transparent', borderLeft: isFirst ? '2px solid var(--purple)' : '2px solid transparent' }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: isFirst ? 'var(--purple)' : 'var(--amber)', boxShadow: isFirst ? '0 0 6px rgba(167,139,250,0.5)' : 'none' }} />
@@ -126,8 +126,8 @@ export default async function AdminPage() {
                 <span className="font-mono" style={{ fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Live — {liveCompetitors.length} configured</span>
               </div>
               {liveCompetitors.map(competitor => {
-                const liveCount = competitor.products?.filter((p: { status: string }) => p.status === 'live').length ?? 0
-                const lastScraped = competitor.products?.reduce((latest: string | null, p: { last_scraped_at: string | null }) => {
+                const liveCount = competitor.competitor_products?.filter((cp: { status: string }) => cp.status === 'live').length ?? 0
+                const lastScraped = competitor.competitor_products?.reduce((latest: string | null, p: { last_scraped_at: string | null }) => {
                   if (!p.last_scraped_at) return latest
                   if (!latest) return p.last_scraped_at
                   return p.last_scraped_at > latest ? p.last_scraped_at : latest

@@ -30,15 +30,15 @@ export async function PATCH(req: NextRequest) {
 
   if (compError) return NextResponse.json({ error: compError.message }, { status: 500 })
 
-  // If going live, activate ALL pending products under this competitor
+  // If going live, activate ALL pending competitor_products under this competitor
   if (go_live) {
-    const { error: prodError } = await supabase
-      .from('products')
+    const { error: cpError } = await supabase
+      .from('competitor_products')
       .update({ status: 'live' })
       .eq('competitor_id', competitor_id)
       .eq('status', 'pending')
 
-    if (prodError) return NextResponse.json({ error: prodError.message }, { status: 500 })
+    if (cpError) return NextResponse.json({ error: cpError.message }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })

@@ -2,9 +2,8 @@
 
 import { useState } from 'react'
 
-interface Product {
+interface CompetitorProduct {
   id: string
-  name: string
   url: string
   status: string
 }
@@ -17,7 +16,7 @@ interface Competitor {
   price_selector: string | null
   check_frequency_hours: number
   notes: string | null
-  products?: Product[]
+  competitor_products?: CompetitorProduct[]
   profile?: { email: string; company_name: string | null }
 }
 
@@ -29,7 +28,7 @@ interface TestResult {
 
 interface Props {
   competitor: Competitor | null
-  sampleProduct: Product | null
+  sampleProduct: CompetitorProduct | null
 }
 
 export default function AdminConfigurePanel({ competitor, sampleProduct }: Props) {
@@ -84,7 +83,7 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
     setTimeout(() => window.location.reload(), 1000)
   }
 
-  const pendingCount = competitor?.products?.filter(p => p.status === 'pending').length ?? 0
+  const pendingCount = competitor?.competitor_products?.length ?? 0
   const confidence = testResult?.price
     ? Math.min(95, 70 + (testResult.duration_ms < 500 ? 20 : testResult.duration_ms < 2000 ? 10 : 0) + (selector.includes('.') ? 5 : 0))
     : 0
@@ -114,10 +113,10 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
         {/* Products list */}
         <div style={{ background: 'var(--bg)', border: '1px solid var(--border-bright)', borderRadius: 8, padding: '10px 12px' }}>
           <div className="font-mono" style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 7 }}>Products in this batch</div>
-          {competitor.products?.map(p => (
+          {competitor.competitor_products?.map(p => (
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
               <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--amber)', flexShrink: 0 }} />
-              <div style={{ fontSize: 11.5, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-dim)' }}>{p.name}</div>
+              <div style={{ fontSize: 11.5, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-dim)' }}>{p.url}</div>
             </div>
           ))}
         </div>
