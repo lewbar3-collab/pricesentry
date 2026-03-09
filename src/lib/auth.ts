@@ -36,12 +36,13 @@ export async function requireAdmin() {
   return profile
 }
 
-// Returns either the real profile or an impersonated one if admin has set impersonation cookie
+// For client pages - if admin is impersonating return that profile,
+// otherwise return their own profile (admins can browse client pages as themselves)
 export async function requireClient(): Promise<Profile> {
   const profile = await getProfile()
   if (!profile) redirect('/login')
 
-  // If admin is impersonating a client, return that client's profile instead
+  // If admin is impersonating a client, return that client's profile
   if (profile.role === 'admin') {
     const cookieStore = await cookies()
     const impersonateId = cookieStore.get('impersonate_user_id')?.value
@@ -54,14 +55,13 @@ export async function requireClient(): Promise<Profile> {
         .single()
       if (impersonatedProfile) return impersonatedProfile
     }
-    // Admin with no impersonation - redirect to admin
-    redirect('/admin')
+    // Admin with no impersonation - return own profile so they can browse
+    return profile
   }
 
   return profile
 }
 
-// Get impersonated user id if set
 export async function getImpersonatedUserId(): Promise<string | null> {
   const cookieStore = await cookies()
   return cookieStore.get('impersonate_user_id')?.value ?? null

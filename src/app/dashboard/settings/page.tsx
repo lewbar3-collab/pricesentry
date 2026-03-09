@@ -1,18 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [companyName, setCompanyName] = useState('')
+  const [email, setEmail] = useState('')
+  const [resetSent, setResetSent] = useState(false)
 
-  async function handleSave(e: React.FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      setEmail(user.email ?? '')
+      const { data } = await supabase.from('profiles').select('company_name').eq('id', user.id).single()
+      if (data?.company_name) setCompanyName(data.company_name)
+    }
+    load()
+  }, [])
+
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const form = e.currentTarget
-    const companyName = (form.elements.namedItem('company_name') as HTMLInputElement).value
-
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
@@ -24,12 +36,11 @@ export default function SettingsPage() {
   }
 
   async function handlePasswordReset() {
+    if (!email) return
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user?.email) {
-      await supabase.auth.resetPasswordForEmail(user.email)
-      alert('Password reset email sent!')
-    }
+    await supabase.auth.resetPasswordForEmail(email)
+    setResetSent(true)
+    setTimeout(() => setResetSent(false), 3000)
   }
 
   return (
@@ -46,12 +57,15 @@ export default function SettingsPage() {
         </div>
         <form onSubmit={handleSave} style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label className="font-mono" style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>
-              Company Name
-            </label>
+            <label className="font-mono" style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Email</label>
+            <div className="font-mono" style={{ fontSize: 12, color: 'var(--text-dim)', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, maxWidth: 400 }}>{email || '—'}</div>
+          </div>
+          <div>
+            <label className="font-mono" style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Company Name</label>
             <input
-              name="company_name"
               type="text"
+              value={companyName}
+              onChange={e => setCompanyName(e.target.value)}
               placeholder="Your company name"
               style={{ width: '100%', maxWidth: 400, background: 'var(--bg)', border: '1px solid var(--border-bright)', borderRadius: 8, padding: '10px 14px', fontFamily: 'DM Mono, monospace', fontSize: 12, color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
             />
@@ -77,14 +91,14 @@ export default function SettingsPage() {
           <p style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 12 }}>Change your password by requesting a reset email.</p>
           <button
             onClick={handlePasswordReset}
-            style={{ background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border-bright)', borderRadius: 8, padding: '9px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            style={{ background: resetSent ? 'var(--accent)' : 'var(--surface2)', color: resetSent ? '#060810' : 'var(--text)', border: '1px solid var(--border-bright)', borderRadius: 8, padding: '9px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
           >
-            Send Password Reset Email
+            {resetSent ? '✓ Email sent!' : 'Send Password Reset Email'}
           </button>
         </div>
       </div>
 
-      {/* Notifications info */}
+      {/* Notifications */}
       <div className="animate-fade-up delay-400" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
           <div className="font-display" style={{ fontWeight: 700, fontSize: 14 }}>Notifications</div>
@@ -95,9 +109,7 @@ export default function SettingsPage() {
               <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>Email alerts on price changes</div>
               <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>Sent to your account email address</div>
             </div>
-            <div className="font-mono" style={{ fontSize: 11, color: 'var(--accent)', background: 'var(--accent-dim)', border: '1px solid rgba(0,229,160,0.2)', padding: '3px 10px', borderRadius: 6 }}>
-              Active
-            </div>
+            <div className="font-mono" style={{ fontSize: 11, color: 'var(--accent)', background: 'var(--accent-dim)', border: '1px solid rgba(0,229,160,0.2)', padding: '3px 10px', borderRadius: 6 }}>Active</div>
           </div>
         </div>
       </div>
