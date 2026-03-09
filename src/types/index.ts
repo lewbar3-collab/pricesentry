@@ -24,17 +24,27 @@ export interface Competitor {
   created_at: string
 }
 
+// YOUR product — what you sell
 export interface Product {
   id: string
   user_id: string
-  competitor_id: string
   name: string
-  url: string
-  status: 'pending' | 'live' | 'error' | 'paused'
-  last_scraped_at: string | null
-  last_price: number | null
   category: string | null
   image_url: string | null
+  created_at: string
+  competitor_products?: CompetitorProduct[]
+}
+
+// A competitor's version of your product at a specific URL
+export interface CompetitorProduct {
+  id: string
+  product_id: string
+  competitor_id: string
+  user_id: string
+  url: string
+  status: 'pending' | 'live' | 'error' | 'paused'
+  last_price: number | null
+  last_scraped_at: string | null
   created_at: string
   competitor?: Competitor
 }
@@ -42,6 +52,7 @@ export interface Product {
 export interface PriceHistory {
   id: string
   product_id: string
+  competitor_product_id: string | null
   price: number
   scraped_at: string
   scrape_duration_ms: number | null
@@ -75,26 +86,11 @@ export interface AlertLog {
 export interface ScrapeJob {
   id: string
   product_id: string
+  competitor_product_id: string | null
   status: 'pending' | 'running' | 'success' | 'error'
   price_found: number | null
   error_message: string | null
   duration_ms: number | null
   created_at: string
-  product?: Product
-}
-
-export interface DashboardStats {
-  totalProducts: number
-  liveProducts: number
-  priceDrops: number
-  priceRises: number
-  alertsSent: number
-}
-
-export interface AdminStats {
-  pendingSetup: number
-  liveProducts: number
-  totalClients: number
-  scrapesToday: number
-  successRate: number
+  competitor_product?: CompetitorProduct & { product?: Product }
 }

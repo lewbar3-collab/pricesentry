@@ -42,7 +42,7 @@ export async function sendPriceChangeAlert({
     <div style="padding:32px;">
       <div style="font-size:13px;color:#8c95a8;margin-bottom:8px;">${direction}</div>
       <div style="font-size:24px;font-weight:800;color:#f0f4ff;letter-spacing:-0.5px;margin-bottom:4px;">${product.name}</div>
-      <div style="font-size:12px;font-family:monospace;color:#5a6478;margin-bottom:28px;">${product.url}</div>
+      <div style="font-size:12px;font-family:monospace;color:#5a6478;margin-bottom:28px;">${(product as {url?: string}).url ?? ""}</div>
       <div style="background:#060810;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px;margin-bottom:24px;">
         <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center;text-align:center;">
           <div>

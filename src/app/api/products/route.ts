@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('products')
-    .select('*, competitor:competitors(*)')
+    .select('*, competitor_products(*, competitor:competitors(*))')
     .eq('user_id', profile.id)
     .order('created_at', { ascending: false })
 
@@ -23,14 +23,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('products')
-    .insert({
-      user_id: profile.id,
-      competitor_id: body.competitor_id,
-      name: body.name,
-      url: body.url,
-      category: body.category ?? null,
-      status: 'pending',
-    })
+    .insert({ user_id: profile.id, name: body.name, category: body.category ?? null })
     .select()
     .single()
 
@@ -45,7 +38,7 @@ export async function PATCH(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('products')
-    .update({ category: body.category ?? null })
+    .update({ category: body.category ?? null, name: body.name })
     .eq('id', body.id)
     .eq('user_id', profile.id)
     .select()
