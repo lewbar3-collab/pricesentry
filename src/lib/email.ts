@@ -1,7 +1,9 @@
 import { Resend } from 'resend'
 import type { Product, AlertRule } from '@/types'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY)
+}
 
 interface PriceChangeEmailProps {
   product: Product
@@ -85,6 +87,7 @@ export async function sendPriceChangeAlert({
 </body>
 </html>`
 
+  const resend = getResend()
   const result = await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL!,
     to: alertRule.email,
@@ -96,6 +99,7 @@ export async function sendPriceChangeAlert({
 }
 
 export async function sendAdminNotification(subject: string, message: string) {
+  const resend = getResend()
   await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL!,
     to: process.env.ADMIN_EMAIL!,
