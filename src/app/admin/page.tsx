@@ -1,20 +1,34 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import StatCard from '@/components/ui/StatCard'
-import StatusPill from '@/components/ui/StatusPill'
 import AdminConfigurePanel from '@/components/admin/AdminConfigurePanel'
 
 export default async function AdminPage() {
   const supabase = await createAdminClient()
 
-  // All products with their client and competitor info
-  const { data: allProducts } = await supabase
-    .from('products')
-    .select('*, competitor:competitors(*), profile:profiles(email, company_name)')
+  // Get all competitors with their products and client info
+  const { data: allCompetitors } = await supabase
+    .from('competitors')
+    .select('*, products(*), profile:profiles(email, company_name)')
     .order('created_at', { ascending: true })
 
-  const pending = allProducts?.filter(p => p.status === 'pending') ?? []
-  const live = allProducts?.filter(p => p.status === 'live') ?? []
-  const errors = allProducts?.filter(p => p.status === 'error') ?? []
+  // Competitors that have at least one pending product and no selector yet
+  const pendingCompetitors = allCompetitors?.filter(c =>
+    !c.price_selector && c.products?.some((p: { status: string }) => p.status === 'pending')
+  ) ?? []
+
+  // Competitors with selector configured (live)
+  const liveCompetitors = allCompetitors?.filter(c => c.price_selector) ?? []
+
+  // Error competitors
+  const errorCompetitors = allCompetitors?.filter(c =>
+    c.products?.some((p: { status: string }) => p.status === 'error')
+  ) ?? []
+
+  // Total live products
+  const { count: liveProductCount } = await supabase
+    .from('products')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'live')
 
   // Client count
   const { count: clientCount } = await supabase
@@ -40,8 +54,11 @@ export default async function AdminPage() {
     .order('created_at', { ascending: false })
     .limit(12)
 
-  // First pending product to configure
-  const firstPending = pending[0] ?? null
+  // First pending competitor to configure
+  const firstPending = pendingCompetitors[0] ?? null
+
+  // Get a sample product URL for the first pending competitor (for test scrape)
+  const sampleProduct = firstPending?.products?.find((p: { status: string }) => p.status === 'pending') ?? null
 
   return (
     <div>
@@ -49,21 +66,19 @@ export default async function AdminPage() {
         <div>
           <h1 className="font-display animate-fade-up" style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.8px', marginBottom: 5 }}>Setup Queue</h1>
           <p className="animate-fade-up delay-100" style={{ fontSize: 13, color: 'var(--text-dim)' }}>
-            {pending.length} products awaiting configuration
-            {pending.length > 0 && <span style={{ color: 'var(--amber)', fontFamily: 'DM Mono, monospace', fontSize: 12 }}> · configure to go live</span>}
+            {pendingCompetitors.length} competitor{pendingCompetitors.length !== 1 ? 's' : ''} awaiting configuration
+            {pendingCompetitors.length > 0 && <span style={{ color: 'var(--amber)', fontFamily: 'DM Mono, monospace', fontSize: 12 }}> · configure selector to activate all products</span>}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <a href="/admin/logs" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 7, fontSize: 12.5, fontWeight: 500, background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border-bright)', textDecoration: 'none' }}>
-            📋 Scrape Logs
-          </a>
-        </div>
+        <a href="/admin/logs" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 7, fontSize: 12.5, fontWeight: 500, background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border-bright)', textDecoration: 'none' }}>
+          📋 Scrape Logs
+        </a>
       </div>
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
-        <StatCard label="Pending Setup" value={pending.length} sub="awaiting config" color="amber" delay={0.15} />
-        <StatCard label="Live Products" value={live.length} sub={`${errors.length} errors`} color="green" delay={0.2} />
+        <StatCard label="Pending Setup" value={pendingCompetitors.length} sub="competitors to configure" color="amber" delay={0.15} />
+        <StatCard label="Live Products" value={liveProductCount ?? 0} sub={`${errorCompetitors.length} with errors`} color="green" delay={0.2} />
         <StatCard label="Total Clients" value={clientCount ?? 0} sub="registered" color="blue" delay={0.25} />
         <StatCard label="Scrapes Today" value={totalToday} sub={`${successRate}% success rate`} color="purple" delay={0.3} />
       </div>
@@ -71,76 +86,102 @@ export default async function AdminPage() {
       {/* Main content: Queue + Configure Panel */}
       <div className="animate-fade-up delay-300" style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 18, marginBottom: 20 }}>
 
-        {/* Queue table */}
+        {/* Queue table — competitors */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
             <div className="font-display" style={{ fontWeight: 700, fontSize: 14 }}>📥 Pending Configuration</div>
             <span className="font-mono" style={{ fontSize: 9, background: 'var(--amber-dim)', color: 'var(--amber)', border: '1px solid rgba(255,184,63,0.2)', padding: '2px 7px', borderRadius: 10, fontWeight: 500 }}>
-              {pending.length} items
+              {pendingCompetitors.length} competitors
             </span>
           </div>
 
-          {/* Head */}
-          <div style={{ display: 'grid', gridTemplateColumns: '24px 2fr 1.2fr 1fr 90px 80px', padding: '10px 20px', borderBottom: '1px solid var(--border)', gap: 12 }}>
-            {['', 'Product / URL', 'Client', 'Submitted', 'Status', 'Actions'].map(h => (
+          <div style={{ display: 'grid', gridTemplateColumns: '24px 2fr 1.2fr 80px 1fr 60px', padding: '10px 20px', borderBottom: '1px solid var(--border)', gap: 12 }}>
+            {['', 'Competitor', 'Client', 'Products', 'Submitted', 'Visit'].map(h => (
               <div key={h} className="font-mono" style={{ fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{h}</div>
             ))}
           </div>
 
-          {pending.length === 0 && (
+          {pendingCompetitors.length === 0 && (
             <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-              🎉 Queue is empty — all products are configured!
+              🎉 Queue is empty — all competitors are configured!
             </div>
           )}
 
-          {[...pending, ...errors].map((product, i) => {
+          {pendingCompetitors.map((competitor, i) => {
             const isFirst = i === 0
-            const isError = product.status === 'error'
+            const productCount = competitor.products?.length ?? 0
+            const pendingCount = competitor.products?.filter((p: { status: string }) => p.status === 'pending').length ?? 0
             return (
               <div
-                key={product.id}
+                key={competitor.id}
                 style={{
-                  display: 'grid', gridTemplateColumns: '24px 2fr 1.2fr 1fr 90px 80px',
-                  alignItems: 'center', padding: '13px 20px', borderBottom: '1px solid var(--border)',
+                  display: 'grid', gridTemplateColumns: '24px 2fr 1.2fr 80px 1fr 60px',
+                  alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--border)',
                   gap: 12,
                   background: isFirst ? 'rgba(167,139,250,0.04)' : 'transparent',
                   borderLeft: isFirst ? '2px solid var(--purple)' : '2px solid transparent',
                 }}
               >
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: isError ? 'var(--red)' : isFirst ? 'var(--red)' : 'var(--amber)', boxShadow: isFirst ? '0 0 6px rgba(255,77,106,0.4)' : 'none' }} />
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: isFirst ? 'var(--purple)' : 'var(--amber)', boxShadow: isFirst ? '0 0 6px rgba(167,139,250,0.5)' : 'none' }} />
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</div>
-                  <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.url}</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{competitor.name}</div>
+                  <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{competitor.domain}</div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-dim)' }}>
-                  <div style={{ width: 20, height: 20, borderRadius: 5, background: 'linear-gradient(135deg,#4d9fff,#00e5a0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700 }}>
-                    {(product.profile?.company_name || product.profile?.email || 'U').slice(0, 2).toUpperCase()}
-                  </div>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {product.profile?.company_name || product.profile?.email}
-                  </span>
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {competitor.profile?.company_name || competitor.profile?.email}
+                </div>
+                <div>
+                  <span className="font-mono" style={{ fontSize: 11, color: 'var(--amber)' }}>{pendingCount}</span>
+                  <span className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}> / {productCount}</span>
                 </div>
                 <div className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                   {(() => {
-                    const d = new Date(product.created_at)
+                    const d = new Date(competitor.created_at)
                     const now = new Date()
                     const diff = Math.floor((now.getTime() - d.getTime()) / 1000 / 60)
                     if (diff < 60) return `${diff}m ago`
-                    if (diff < 1440) return `${Math.floor(diff/60)}h ago`
-                    return 'Yesterday'
+                    if (diff < 1440) return `${Math.floor(diff / 60)}h ago`
+                    return `${Math.floor(diff / 1440)}d ago`
                   })()}
                 </div>
-                <div><StatusPill status={isFirst ? 'configuring' : product.status} /></div>
-                <div style={{ display: 'flex', gap: 5 }}>
-                  <a href={product.url} target="_blank" style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-dim)', textDecoration: 'none' }}>↗</a>
+                <div>
+                  <a href={`https://${competitor.domain}`} target="_blank" style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-dim)', textDecoration: 'none' }}>↗</a>
                 </div>
               </div>
             )
           })}
+
+          {/* Live competitors section */}
+          {liveCompetitors.length > 0 && (
+            <>
+              <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(0,229,160,0.02)' }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />
+                <span className="font-mono" style={{ fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Live — {liveCompetitors.length} configured</span>
+              </div>
+              {liveCompetitors.map(competitor => {
+                const liveCount = competitor.products?.filter((p: { status: string }) => p.status === 'live').length ?? 0
+                return (
+                  <div key={competitor.id} style={{ display: 'grid', gridTemplateColumns: '24px 2fr 1.2fr 80px 1fr 60px', alignItems: 'center', padding: '11px 20px', borderBottom: '1px solid var(--border)', gap: 12, opacity: 0.7 }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{competitor.name}</div>
+                      <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>{competitor.domain}</div>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {competitor.profile?.company_name || competitor.profile?.email}
+                    </div>
+                    <div className="font-mono" style={{ fontSize: 11, color: 'var(--accent)' }}>{liveCount} live</div>
+                    <div className="font-mono" style={{ fontSize: 10, color: 'var(--accent)', background: 'var(--accent-dim)', border: '1px solid rgba(0,229,160,0.2)', padding: '2px 8px', borderRadius: 4, display: 'inline-flex', alignItems: 'center' }}>✓ configured</div>
+                    <a href={`https://${competitor.domain}`} target="_blank" style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-dim)', textDecoration: 'none' }}>↗</a>
+                  </div>
+                )
+              })}
+            </>
+          )}
         </div>
 
         {/* Configure panel */}
-        <AdminConfigurePanel product={firstPending} />
+        <AdminConfigurePanel competitor={firstPending} sampleProduct={sampleProduct} />
       </div>
 
       {/* Scrape Log */}
@@ -168,7 +209,7 @@ export default async function AdminPage() {
                   <strong style={{ color: isErr ? 'var(--red)' : 'var(--text)' }}>{job.product?.competitor?.domain}</strong>
                   {' · '}{job.product?.name}
                   {isErr && ' · selector failed'}
-                  {isWarn && !isErr && ` · slow ${(job.duration_ms!/1000).toFixed(1)}s`}
+                  {isWarn && !isErr && ` · slow ${(job.duration_ms! / 1000).toFixed(1)}s`}
                 </div>
                 <div className="font-mono" style={{ fontSize: 11, color: isErr ? 'var(--red)' : 'var(--accent)', flexShrink: 0 }}>
                   {isErr ? 'ERR' : job.price_found ? `£${Number(job.price_found).toFixed(2)}` : '—'}
@@ -176,6 +217,11 @@ export default async function AdminPage() {
               </div>
             )
           })}
+          {!recentJobs?.length && (
+            <div style={{ padding: '24px 20px', color: 'var(--text-muted)', fontSize: 12, gridColumn: 'span 2', textAlign: 'center' }}>
+              No scrape jobs yet — trigger the cron or wait for the hourly run.
+            </div>
+          )}
         </div>
       </div>
     </div>
