@@ -17,6 +17,15 @@ export async function POST(req: NextRequest) {
 
   if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 })
 
+  // Check if competitor already has a selector configured — if so go straight to live
+  const { data: competitor } = await supabase
+    .from('competitors')
+    .select('price_selector')
+    .eq('id', body.competitor_id)
+    .single()
+
+  const status = competitor?.price_selector ? 'live' : 'pending'
+
   const { data, error } = await supabase
     .from('competitor_products')
     .insert({
@@ -24,7 +33,7 @@ export async function POST(req: NextRequest) {
       competitor_id: body.competitor_id,
       user_id: profile.id,
       url: body.url,
-      status: 'pending',
+      status,
     })
     .select('*, competitor:competitors(*)')
     .single()
@@ -43,6 +52,24 @@ export async function DELETE(req: NextRequest) {
     .delete()
     .eq('id', id)
     .eq('user_id', profile.id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ success: true })
+}
+
+export async function PATCH(req: NextRequest) {
+  // Admin can manually activate pending competitor_products for a configured competitor
+  const { requireAdmin } = await import('@/lib/auth')
+  await requireAdmin()
+  const supabase = await createAdminClient()
+  const body = await req.json()
+
+  // Activate all pending for this competitor
+  const { error } = await supabase
+    .from('competitor_products')
+    .update({ status: 'live' })
+    .eq('competitor_id', body.competitor_id)
+    .eq('status', 'pending')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })

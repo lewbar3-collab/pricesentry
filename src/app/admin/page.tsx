@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import StatCard from '@/components/ui/StatCard'
 import AdminConfigurePanel from '@/components/admin/AdminConfigurePanel'
 import RefreshButton from '@/components/admin/RefreshButton'
+import ActivatePendingButton from '@/components/admin/ActivatePendingButton'
 
 export default async function AdminPage() {
   const supabase = await createAdminClient()
@@ -127,6 +128,7 @@ export default async function AdminPage() {
               </div>
               {liveCompetitors.map(competitor => {
                 const liveCount = competitor.competitor_products?.filter((cp: { status: string }) => cp.status === 'live').length ?? 0
+                const pendingCount = competitor.competitor_products?.filter((cp: { status: string }) => cp.status === 'pending').length ?? 0
                 const lastScraped = competitor.competitor_products?.reduce((latest: string | null, p: { last_scraped_at: string | null }) => {
                   if (!p.last_scraped_at) return latest
                   if (!latest) return p.last_scraped_at
@@ -135,11 +137,12 @@ export default async function AdminPage() {
 
                 return (
                   <div key={competitor.id} style={{ display: 'flex', alignItems: 'center', padding: '12px 20px', borderBottom: '1px solid var(--border)', gap: 14 }}>
-                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: pendingCount > 0 ? 'var(--amber)' : 'var(--accent)', flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 500 }}>{competitor.name}</div>
                       <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                        {competitor.domain} · {liveCount} live product{liveCount !== 1 ? 's' : ''}
+                        {competitor.domain} · {liveCount} live{pendingCount > 0 ? ` · ` : ''}
+                        {pendingCount > 0 && <span style={{ color: 'var(--amber)' }}>{pendingCount} pending</span>}
                         {lastScraped && ` · last scraped ${(() => {
                           const diff = Math.floor((Date.now() - new Date(lastScraped).getTime()) / 60000)
                           if (diff < 1) return 'just now'
@@ -152,6 +155,9 @@ export default async function AdminPage() {
                     <div style={{ fontSize: 12, color: 'var(--text-dim)', minWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {competitor.profile?.company_name || competitor.profile?.email}
                     </div>
+                    {pendingCount > 0 && (
+                      <ActivatePendingButton competitorId={competitor.id} count={pendingCount} />
+                    )}
                     <RefreshButton competitorId={competitor.id} productCount={liveCount} />
                     <a href={`https://${competitor.domain}`} target="_blank" style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-dim)', textDecoration: 'none', flexShrink: 0 }}>↗</a>
                   </div>
