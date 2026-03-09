@@ -34,17 +34,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // Protect cron route with secret
-  if (pathname === '/api/cron') {
-    const auth = request.headers.get('authorization')
-    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
-    }
-  }
-
   return supabaseResponse
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|api/).*)',
+  ],
 }
