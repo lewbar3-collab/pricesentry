@@ -63,7 +63,7 @@ export async function sendPriceChangeAlert({
             <td>
               <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
                 <tr>
-                  <td style="width:32px;height:32px;background:#00e5a0;border-radius:8px;text-align:center;vertical-align:middle;font-size:16px;">👁</td>
+                  <td style="width:32px;height:32px;background:linear-gradient(135deg,#00E5FF,#0080FF);border-radius:8px;text-align:center;vertical-align:middle;font-family:monospace;font-size:13px;font-weight:800;color:#080C14;">PS</td>
                   <td style="padding-left:10px;font-size:17px;font-weight:800;color:#f0f4ff;letter-spacing:-0.5px;">PriceSentry</td>
                 </tr>
               </table>

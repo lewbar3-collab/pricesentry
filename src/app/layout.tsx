@@ -3,6 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'PriceSentry — Competitor Price Intelligence',
+  icons: { icon: '/logo-icon.svg' },
   description: 'Monitor competitor prices and get alerted when they change.',
 }
 
