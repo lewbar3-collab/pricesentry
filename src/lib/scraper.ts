@@ -9,34 +9,33 @@ export interface ScrapeResult {
   selector_used: string | null
 }
 
+export type ScrapeMethod = 'fetch' | 'shopify_json' | 'playwright' | 'proxy'
+
 /**
  * Extracts a price from a URL.
- * Tries sale_price_selector first (if provided), falls back to price_selector.
- * Uses browser-like headers to avoid 403s from WooCommerce / Cloudflare.
+ * - shopify_json: hits /products/handle.json, reads variant prices (sale first)
+ * - fetch: CSS selector on HTML page (sale selector tried first, falls back to regular)
  */
 export async function scrapePrice(
   url: string,
   salePriceSelector: string | null,
   regularPriceSelector: string | null,
-  method: 'fetch' | 'playwright' | 'proxy' = 'fetch'
+  method: ScrapeMethod = 'fetch'
 ): Promise<ScrapeResult> {
   const start = Date.now()
 
   try {
+    if (method === 'shopify_json') {
+      return await scrapeShopifyJson(url, start)
+    }
+
     const html = await fetchPage(url)
 
     // Try sale selector first
     if (salePriceSelector) {
       const price = extractPrice(html, salePriceSelector)
       if (price !== null) {
-        return {
-          price,
-          raw: price.toString(),
-          error: null,
-          duration_ms: Date.now() - start,
-          method,
-          selector_used: salePriceSelector,
-        }
+        return { price, raw: price.toString(), error: null, duration_ms: Date.now() - start, method, selector_used: salePriceSelector }
       }
     }
 
@@ -44,45 +43,85 @@ export async function scrapePrice(
     if (regularPriceSelector) {
       const price = extractPrice(html, regularPriceSelector)
       if (price !== null) {
-        return {
-          price,
-          raw: price.toString(),
-          error: null,
-          duration_ms: Date.now() - start,
-          method,
-          selector_used: regularPriceSelector,
-        }
+        return { price, raw: price.toString(), error: null, duration_ms: Date.now() - start, method, selector_used: regularPriceSelector }
       }
     }
 
     const tried = [salePriceSelector, regularPriceSelector].filter(Boolean).join(', ')
-    return {
-      price: null,
-      raw: null,
-      error: `No price found. Tried: ${tried || 'no selectors configured'}`,
-      duration_ms: Date.now() - start,
-      method,
-      selector_used: null,
-    }
+    return { price: null, raw: null, error: `No price found. Tried: ${tried || 'no selectors configured'}`, duration_ms: Date.now() - start, method, selector_used: null }
+
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    return {
-      price: null,
-      raw: null,
-      error: message,
-      duration_ms: Date.now() - start,
-      method,
-      selector_used: null,
+    return { price: null, raw: null, error: message, duration_ms: Date.now() - start, method, selector_used: null }
+  }
+}
+
+/**
+ * Shopify JSON method — appends .json to product URL and reads variant prices.
+ * Returns the lowest current price (sale price if active, otherwise regular).
+ * Shopify stores prices in cents as integers (e.g. 4999 = £49.99).
+ */
+async function scrapeShopifyJson(url: string, start: number): Promise<ScrapeResult> {
+  const method = 'shopify_json'
+
+  // Normalise URL — strip query/hash, ensure it ends with .json
+  const parsed = new URL(url)
+  let path = parsed.pathname.replace(/\/$/, '').replace(/\.json$/, '')
+  const jsonUrl = `${parsed.origin}${path}.json`
+
+  const response = await fetch(jsonUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'en-GB,en;q=0.9',
+    },
+    next: { revalidate: 0 },
+  })
+
+  if (!response.ok) {
+    return { price: null, raw: null, error: `Shopify JSON: HTTP ${response.status} — is this a Shopify product URL?`, duration_ms: Date.now() - start, method, selector_used: null }
+  }
+
+  let json: { product?: { variants?: { price: string; compare_at_price: string | null }[] } }
+  try {
+    json = await response.json()
+  } catch {
+    return { price: null, raw: null, error: 'Shopify JSON: response was not valid JSON', duration_ms: Date.now() - start, method, selector_used: null }
+  }
+
+  const variants = json?.product?.variants
+  if (!variants?.length) {
+    return { price: null, raw: null, error: 'Shopify JSON: no variants found in response', duration_ms: Date.now() - start, method, selector_used: null }
+  }
+
+  // Find the lowest active price across all variants
+  // compare_at_price = original price (set when on sale), price = current price
+  let lowestPrice: number | null = null
+  for (const variant of variants) {
+    const current = parseFloat(variant.price)
+    if (!isNaN(current) && (lowestPrice === null || current < lowestPrice)) {
+      lowestPrice = current
     }
+  }
+
+  if (lowestPrice === null) {
+    return { price: null, raw: null, error: 'Shopify JSON: could not parse any variant prices', duration_ms: Date.now() - start, method, selector_used: null }
+  }
+
+  return {
+    price: lowestPrice,
+    raw: lowestPrice.toString(),
+    error: null,
+    duration_ms: Date.now() - start,
+    method,
+    selector_used: 'shopify_json',
   }
 }
 
 async function fetchPage(url: string): Promise<string> {
   const domain = new URL(url).hostname
-
   const response = await fetch(url, {
     headers: {
-      // Full browser identity — defeats most basic bot detection incl. WooCommerce/Cloudflare
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
       'Accept-Language': 'en-GB,en;q=0.9',
@@ -104,10 +143,7 @@ async function fetchPage(url: string): Promise<string> {
     next: { revalidate: 0 },
   })
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-  }
-
+  if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`)
   return response.text()
 }
 
@@ -115,32 +151,28 @@ function extractPrice(html: string, selector: string): number | null {
   const $ = cheerio.load(html)
   const el = $(selector).first()
   if (!el.length) return null
-  const raw = el.text().trim()
-  return parsePrice(raw)
+  return parsePrice(el.text().trim())
 }
 
 export function parsePrice(raw: string): number | null {
   const cleaned = raw
     .replace(/[£$€¥]/g, '')
     .replace(/\s/g, '')
-    .replace(/,(?=\d{3})/g, '')   // Remove thousand separators
-    .replace(/,/g, '.')            // EU decimal comma -> dot
+    .replace(/,(?=\d{3})/g, '')
+    .replace(/,/g, '.')
     .trim()
 
   const match = cleaned.match(/\d+\.?\d{0,2}/)
   if (!match) return null
-
   const price = parseFloat(match[0])
   return isNaN(price) ? null : price
 }
 
-/**
- * Test a selector against a URL — used by admin scraper config panel
- */
 export async function testScrape(
   url: string,
   salePriceSelector: string | null,
-  regularPriceSelector: string | null
+  regularPriceSelector: string | null,
+  method: ScrapeMethod = 'fetch'
 ) {
-  return scrapePrice(url, salePriceSelector, regularPriceSelector, 'fetch')
+  return scrapePrice(url, salePriceSelector, regularPriceSelector, method)
 }

@@ -34,8 +34,8 @@ interface Props {
 }
 
 export default function AdminConfigurePanel({ competitor, sampleProduct }: Props) {
-  const [method, setMethod] = useState<'fetch' | 'playwright' | 'proxy'>(
-    (competitor?.scrape_method as 'fetch' | 'playwright' | 'proxy') ?? 'fetch'
+  const [method, setMethod] = useState<'fetch' | 'shopify_json' | 'playwright' | 'proxy'>(
+    (competitor?.scrape_method as 'fetch' | 'shopify_json' | 'playwright' | 'proxy') ?? 'fetch'
   )
   const [saleSelector, setSaleSelector]   = useState(competitor?.sale_price_selector ?? '')
   const [regularSelector, setRegularSelector] = useState(competitor?.price_selector ?? '')
@@ -59,6 +59,7 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
           url: testUrl,
           sale_price_selector: saleSelector || null,
           price_selector: regularSelector || null,
+          method,
         }),
       })
       const result = await res.json()
@@ -92,7 +93,7 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
   }
 
   const pendingCount = competitor?.competitor_products?.length ?? 0
-  const hasSelector = !!(saleSelector || regularSelector)
+  const hasSelector = method === 'shopify_json' || !!(saleSelector || regularSelector)
   const confidence = testResult?.price
     ? Math.min(95, 70 + (testResult.duration_ms < 500 ? 20 : testResult.duration_ms < 2000 ? 10 : 0) + (hasSelector ? 5 : 0))
     : 0
@@ -145,20 +146,30 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
         <div>
           <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Scrape Method</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            {(['fetch', 'playwright', 'proxy'] as const).map(m => (
+            {(['fetch', 'shopify_json', 'playwright', 'proxy'] as const).map(m => (
               <button
                 key={m}
                 onClick={() => setMethod(m)}
                 style={{ flex: 1, padding: 8, borderRadius: 7, border: `1px solid ${method === m ? 'rgba(167,139,250,0.3)' : 'var(--border-bright)'}`, background: method === m ? 'var(--purple-dim)' : 'transparent', color: method === m ? 'var(--purple)' : 'var(--text-dim)', fontFamily: 'DM Mono, monospace', fontSize: 11, cursor: 'pointer', transition: 'all 0.15s' }}
               >
-                {m === 'fetch' ? '⚡ Fetch' : m === 'playwright' ? '🎭 JS' : '🔒 Proxy'}
+                {m === 'fetch' ? '⚡ Fetch' : m === 'shopify_json' ? '🛍 Shopify' : m === 'playwright' ? '🎭 JS' : '🔒 Proxy'}
               </button>
             ))}
           </div>
         </div>
 
+        {/* Shopify JSON note — selectors not needed */}
+        {method === 'shopify_json' && (
+          <div style={{ padding: '12px 14px', borderRadius: 8, background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)' }}>
+            <div className="font-mono" style={{ fontSize: 11, color: 'var(--purple)', marginBottom: 4 }}>🛍 Shopify JSON mode</div>
+            <div style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+              Appends <code style={{ background: 'var(--bg)', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>.json</code> to each product URL and reads the variant price directly — no CSS selectors needed. Works on any standard Shopify store.
+            </div>
+          </div>
+        )}
+
         {/* Sale price selector */}
-        <div>
+        <div style={{ opacity: method === 'shopify_json' ? 0.35 : 1, pointerEvents: method === 'shopify_json' ? 'none' : 'auto', transition: 'opacity 0.15s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Sale Price Selector</div>
             <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(0,229,160,0.1)', color: 'var(--accent)', border: '1px solid rgba(0,229,160,0.2)', fontFamily: 'DM Mono, monospace' }}>tried first</span>
@@ -172,7 +183,7 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
         </div>
 
         {/* Regular price selector */}
-        <div>
+        <div style={{ opacity: method === 'shopify_json' ? 0.35 : 1, pointerEvents: method === 'shopify_json' ? 'none' : 'auto', transition: 'opacity 0.15s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Regular Price Selector</div>
             <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(140,149,168,0.1)', color: 'var(--text-muted)', border: '1px solid var(--border)', fontFamily: 'DM Mono, monospace' }}>fallback</span>

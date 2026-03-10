@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { testScrape } from '@/lib/scraper'
+import { testScrape, type ScrapeMethod } from '@/lib/scraper'
 import { getProfile } from '@/lib/auth'
 
 async function checkAdmin() {
@@ -12,11 +12,16 @@ export async function POST(req: NextRequest) {
   const admin = await checkAdmin()
   if (!admin) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
 
-  const { url, sale_price_selector, price_selector } = await req.json()
+  const { url, sale_price_selector, price_selector, method } = await req.json()
 
   if (!url) return NextResponse.json({ error: 'url is required' }, { status: 400 })
-  if (!sale_price_selector && !price_selector) return NextResponse.json({ error: 'At least one selector is required' }, { status: 400 })
 
-  const result = await testScrape(url, sale_price_selector ?? null, price_selector ?? null)
+  const scrapeMethod: ScrapeMethod = method ?? 'fetch'
+
+  if (scrapeMethod !== 'shopify_json' && !sale_price_selector && !price_selector) {
+    return NextResponse.json({ error: 'At least one selector is required for fetch mode' }, { status: 400 })
+  }
+
+  const result = await testScrape(url, sale_price_selector ?? null, price_selector ?? null, scrapeMethod)
   return NextResponse.json(result)
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { scrapePrice } from '@/lib/scraper'
+import { scrapePrice, type ScrapeMethod } from '@/lib/scraper'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,7 +55,8 @@ async function runScrape(competitorId: string | null) {
 
     for (const cp of competitorProducts) {
       const competitor = cp.competitor
-      if (!competitor?.sale_price_selector && !competitor?.price_selector) { results.skipped++; continue }
+      const isShopify = competitor?.scrape_method === 'shopify_json'
+      if (!isShopify && !competitor?.sale_price_selector && !competitor?.price_selector) { results.skipped++; continue }
 
       const jobStart = Date.now()
       const { data: job } = await supabase
@@ -63,7 +64,7 @@ async function runScrape(competitorId: string | null) {
         .insert({ product_id: cp.product_id, competitor_product_id: cp.id, status: 'running' })
         .select().single()
 
-      const result = await scrapePrice(cp.url, competitor.sale_price_selector ?? null, competitor.price_selector ?? null, competitor.scrape_method)
+      const result = await scrapePrice(cp.url, competitor.sale_price_selector ?? null, competitor.price_selector ?? null, (competitor.scrape_method as ScrapeMethod) ?? 'fetch')
       const duration = Date.now() - jobStart
 
       if (result.price !== null) {
