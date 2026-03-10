@@ -5,11 +5,12 @@ import { requireClient } from '@/lib/auth'
 export async function GET() {
   const profile = await requireClient()
   const supabase = await createAdminClient()
+  const ownerId = profile.ownerId ?? profile.id
 
   const { data, error } = await supabase
     .from('products')
     .select('*, competitor_products(*, competitor:competitors(*))')
-    .eq('user_id', profile.id)
+    .eq('user_id', ownerId)
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -19,11 +20,12 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const profile = await requireClient()
   const supabase = await createAdminClient()
+  const ownerId = profile.ownerId ?? profile.id
   const body = await req.json()
 
   const { data, error } = await supabase
     .from('products')
-    .insert({ user_id: profile.id, name: body.name, category: body.category ?? null })
+    .insert({ user_id: ownerId, name: body.name, category: body.category ?? null })
     .select()
     .single()
 
@@ -34,13 +36,14 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const profile = await requireClient()
   const supabase = await createAdminClient()
+  const ownerId = profile.ownerId ?? profile.id
   const body = await req.json()
 
   const { data, error } = await supabase
     .from('products')
     .update({ category: body.category ?? null, name: body.name })
     .eq('id', body.id)
-    .eq('user_id', profile.id)
+    .eq('user_id', ownerId)
     .select()
     .single()
 

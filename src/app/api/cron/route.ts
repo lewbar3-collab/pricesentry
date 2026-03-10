@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const supabase = await createAdminClient()
     const { data } = await supabase
       .from('competitors').select('user_id').eq('id', competitorId).single()
-    if (!data || data.user_id !== profile.id)
+    if (!data || data.user_id !== (profile.ownerId ?? profile.id))
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   } else if (profile.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

@@ -14,17 +14,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing file or product_id' }, { status: 400 })
   }
 
+  const ownerId = profile.ownerId ?? profile.id
   const { data: product } = await supabase
     .from('products')
     .select('id, user_id')
     .eq('id', productId)
-    .eq('user_id', profile.id)
+    .eq('user_id', ownerId)
     .single()
 
   if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 })
 
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
-  const path = `${profile.id}/${productId}.${ext}`
+  const path = `${ownerId}/${productId}.${ext}`
 
   const { error: uploadError } = await supabase.storage
     .from('product-images')
