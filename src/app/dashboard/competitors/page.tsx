@@ -1,32 +1,50 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { getPlanLimits } from '@/lib/plans'
 import type { Competitor } from '@/types'
 
 export default function CompetitorsPage() {
   const [competitors, setCompetitors] = useState<Competitor[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [name, setName] = useState('')
-  const [domain, setDomain] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [plan, setPlan]               = useState<string>('starter')
+  const [loading, setLoading]         = useState(true)
+  const [showForm, setShowForm]       = useState(false)
+  const [name, setName]               = useState('')
+  const [domain, setDomain]           = useState('')
+  const [saving, setSaving]           = useState(false)
+  const [error, setError]             = useState<string | null>(null)
+  const [limitReached, setLimitReached] = useState(false)
 
   useEffect(() => {
-    fetch('/api/competitors')
-      .then(r => r.json())
-      .then(data => { setCompetitors(data); setLoading(false) })
+    Promise.all([
+      fetch('/api/competitors').then(r => r.json()),
+      fetch('/api/profile').then(r => r.json()),
+    ]).then(([comps, prof]) => {
+      setCompetitors(Array.isArray(comps) ? comps : [])
+      setPlan(prof.plan ?? 'starter')
+      setLoading(false)
+    })
   }, [])
+
+  const limits = getPlanLimits(plan)
+  const atLimit = limits.competitors !== null && competitors.length >= limits.competitors
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
-    setSaving(true)
+    setSaving(true); setError(null)
     const res = await fetch('/api/competitors', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, domain }),
     })
-    const comp = await res.json()
-    setCompetitors(prev => [comp, ...prev])
+    const data = await res.json()
+    if (!res.ok) {
+      setError(data.error)
+      if (data.limitReached) setLimitReached(true)
+      setSaving(false)
+      return
+    }
+    setCompetitors(prev => [data, ...prev])
     setName(''); setDomain(''); setShowForm(false); setSaving(false)
   }
 
@@ -35,17 +53,47 @@ export default function CompetitorsPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
           <h1 className="font-display animate-fade-up" style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.8px', marginBottom: 5 }}>Competitors</h1>
-          <p className="animate-fade-up delay-100" style={{ fontSize: 13, color: 'var(--text-dim)' }}>Add competitor sites, then add products to track under each one.</p>
+          <p className="animate-fade-up delay-100" style={{ fontSize: 13, color: 'var(--text-dim)' }}>
+            Add competitor sites, then add products to track under each one.
+            {limits.competitors !== null && (
+              <span className="font-mono" style={{ marginLeft: 10, fontSize: 11, color: atLimit ? 'var(--amber)' : 'var(--text-muted)' }}>
+                {competitors.length} / {limits.competitors} used
+              </span>
+            )}
+          </p>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 7, fontSize: 12.5, fontWeight: 600, background: 'var(--accent)', color: '#060810', border: 'none', cursor: 'pointer' }}
+          onClick={() => { if (!atLimit) { setShowForm(!showForm); setError(null) } }}
+          disabled={atLimit}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 7, fontSize: 12.5, fontWeight: 600, background: atLimit ? 'var(--surface2)' : 'var(--accent)', color: atLimit ? 'var(--text-muted)' : '#060810', border: atLimit ? '1px solid var(--border)' : 'none', cursor: atLimit ? 'not-allowed' : 'pointer', opacity: loading ? 0 : 1, transition: 'opacity 0.15s ease' }}
         >
           ＋ Add Competitor
         </button>
       </div>
 
-      {showForm && (
+      {/* Plan limit banner */}
+      {atLimit && !loading && (
+        <div className="animate-fade-up" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderRadius: 10, background: 'rgba(255,184,63,0.07)', border: '1px solid rgba(255,184,63,0.25)', marginBottom: 20 }}>
+          <span style={{ fontSize: 18 }}>⚠️</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--amber)', marginBottom: 2 }}>
+              Competitor limit reached
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+              Your <span className="font-mono" style={{ color: 'var(--text)' }}>{limits.label}</span> plan includes {limits.competitors} competitor{limits.competitors !== 1 ? 's' : ''}. Contact us to upgrade your plan and add more.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* API error (e.g. limit hit via race condition) */}
+      {error && !atLimit && (
+        <div className="animate-fade-up" style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(255,77,106,0.07)', border: '1px solid rgba(255,77,106,0.2)', fontSize: 12.5, color: 'var(--red)', marginBottom: 16 }}>
+          {error}
+        </div>
+      )}
+
+      {showForm && !atLimit && (
         <div className="animate-fade-up" style={{ background: 'var(--surface)', border: '1px solid var(--border-bright)', borderRadius: 13, padding: '24px', marginBottom: 20 }}>
           <div className="font-display" style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>New Competitor</div>
           <form onSubmit={handleAdd} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'end' }}>
