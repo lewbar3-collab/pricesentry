@@ -50,3 +50,20 @@ export async function PATCH(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
+
+export async function DELETE(req: NextRequest) {
+  const profile = await requireClient()
+  const supabase = await createAdminClient()
+  const ownerId = profile.ownerId ?? profile.id
+  const { id } = await req.json()
+
+  // Deleting the product cascades to competitor_products, price_history, alert_rules
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', ownerId)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ success: true })
+}

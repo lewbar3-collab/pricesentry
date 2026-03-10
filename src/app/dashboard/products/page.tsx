@@ -69,8 +69,11 @@ export default function ProductsPage() {
   const [savingAlert, setSavingAlert] = useState(false)
 
   // Inline edit
-  const [editingId, setEditingId]     = useState<string | null>(null)
+  const [editingId, setEditingId]       = useState<string | null>(null)
   const [editCategory, setEditCategory] = useState('')
+  const [editingNameId, setEditingNameId] = useState<string | null>(null)
+  const [editName, setEditName]           = useState('')
+  const [deletingId, setDeletingId]       = useState<string | null>(null)
   const [uploadingId, setUploadingId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadForId  = useRef<string | null>(null)
@@ -127,6 +130,20 @@ export default function ProductsPage() {
     await fetch('/api/products', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: productId, category: editCategory || null }) })
     setProducts(prev => prev.map(p => p.id === productId ? { ...p, category: editCategory || null } : p))
     setEditingId(null)
+  }
+
+  async function handleSaveName(productId: string) {
+    const trimmed = editName.trim()
+    if (!trimmed) return
+    await fetch('/api/products', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: productId, name: trimmed }) })
+    setProducts(prev => prev.map(p => p.id === productId ? { ...p, name: trimmed } : p))
+    setEditingNameId(null)
+  }
+
+  async function handleDeleteProduct(productId: string) {
+    await fetch('/api/products', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: productId }) })
+    setProducts(prev => prev.filter(p => p.id !== productId))
+    setDeletingId(null)
   }
 
   function openAlertForm(cpId: string) {
@@ -254,8 +271,25 @@ export default function ProductsPage() {
                     : <span style={{ fontSize: 20 }}>📷</span>}
                 </div>
                 <div style={{ flex: 1, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 5 }}>{product.name}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {editingNameId === product.id ? (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 5 }}>
+                        <input
+                          autoFocus
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleSaveName(product.id); if (e.key === 'Escape') setEditingNameId(null) }}
+                          style={{ flex: 1, background: 'var(--bg)', border: '1px solid rgba(0,229,160,0.3)', borderRadius: 7, padding: '5px 10px', fontFamily: 'inherit', fontSize: 15, fontWeight: 700, color: 'var(--text)', outline: 'none' }}
+                        />
+                        <button onClick={() => handleSaveName(product.id)} style={{ padding: '5px 10px', borderRadius: 6, background: 'var(--accent)', color: '#060810', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer' }}>✓</button>
+                        <button onClick={() => setEditingNameId(null)} style={{ padding: '5px 8px', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text-muted)', fontSize: 12, border: '1px solid var(--border)', cursor: 'pointer' }}>✕</button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                        <div style={{ fontWeight: 700, fontSize: 15 }}>{product.name}</div>
+                        <button onClick={() => { setEditingNameId(product.id); setEditName(product.name) }} style={{ fontSize: 11, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px', opacity: 0.6 }} title="Edit name">✏️</button>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {editingId === product.id ? (
                         <div style={{ display: 'flex', gap: 5 }}>
@@ -271,9 +305,20 @@ export default function ProductsPage() {
                       )}
                     </div>
                   </div>
-                  <button onClick={() => { setAddingCompetitorFor(addingCompetitorFor === product.id ? null : product.id); if (competitors.length > 0) setCpCompetitorId(competitors[0].id); setCpUrl('') }} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 500, background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border-bright)', cursor: 'pointer' }}>
-                    ＋ Add Competitor URL
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button onClick={() => { setAddingCompetitorFor(addingCompetitorFor === product.id ? null : product.id); if (competitors.length > 0) setCpCompetitorId(competitors[0].id); setCpUrl('') }} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 500, background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border-bright)', cursor: 'pointer' }}>
+                      ＋ Add Competitor URL
+                    </button>
+                    {deletingId === product.id ? (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, color: 'var(--red)', fontFamily: 'DM Mono, monospace' }}>Delete?</span>
+                        <button onClick={() => handleDeleteProduct(product.id)} style={{ padding: '5px 10px', borderRadius: 6, background: 'rgba(255,77,106,0.15)', color: 'var(--red)', fontSize: 11, fontWeight: 600, border: '1px solid rgba(255,77,106,0.3)', cursor: 'pointer' }}>Yes</button>
+                        <button onClick={() => setDeletingId(null)} style={{ padding: '5px 8px', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text-muted)', fontSize: 11, border: '1px solid var(--border)', cursor: 'pointer' }}>No</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setDeletingId(product.id)} title="Delete product" style={{ width: 30, height: 30, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer' }}>🗑</button>
+                    )}
+                  </div>
                 </div>
               </div>
 
