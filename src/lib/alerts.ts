@@ -12,7 +12,7 @@ export async function processAlerts(
   const { data: rules } = await supabase
     .from('alert_rules')
     .select('*')
-    .eq('product_id', cp.product_id)
+    .eq('competitor_product_id', cp.id)
     .eq('is_active', true)
 
   if (!rules?.length) return 0

@@ -13,7 +13,6 @@ interface SidebarProps {
 const clientNav = [
   { label: 'Dashboard', href: '/dashboard', icon: '⊞' },
   { label: 'Price History', href: '/dashboard/history', icon: '📊' },
-  { label: 'Alerts', href: '/dashboard/alerts', icon: '🔔' },
   { label: 'Competitors', href: '/dashboard/competitors', icon: '🏢' },
   { label: 'Products', href: '/dashboard/products', icon: '📦' },
   { label: 'Settings', href: '/dashboard/settings', icon: '⚙️' },
