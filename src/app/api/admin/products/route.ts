@@ -29,12 +29,12 @@ export async function PATCH(req: NextRequest) {
   const supabase = await createAdminClient()
   const body = await req.json()
 
-  const { competitor_id, scrape_method, price_selector, check_frequency_hours, notes, go_live } = body
+  const { competitor_id, scrape_method, sale_price_selector, price_selector, check_frequency_hours, notes, go_live } = body
 
   // Update competitor config
   const { error: compError } = await supabase
     .from('competitors')
-    .update({ scrape_method, price_selector, check_frequency_hours, notes })
+    .update({ scrape_method, sale_price_selector, price_selector, check_frequency_hours, notes })
     .eq('id', competitor_id)
 
   if (compError) return NextResponse.json({ error: compError.message }, { status: 500 })

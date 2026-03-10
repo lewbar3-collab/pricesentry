@@ -13,6 +13,7 @@ interface Competitor {
   name: string
   domain: string
   scrape_method: string
+  sale_price_selector: string | null
   price_selector: string | null
   check_frequency_hours: number
   notes: string | null
@@ -24,6 +25,7 @@ interface TestResult {
   price: number | null
   error: string | null
   duration_ms: number
+  selector_used: string | null
 }
 
 interface Props {
@@ -35,29 +37,34 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
   const [method, setMethod] = useState<'fetch' | 'playwright' | 'proxy'>(
     (competitor?.scrape_method as 'fetch' | 'playwright' | 'proxy') ?? 'fetch'
   )
-  const [selector, setSelector] = useState(competitor?.price_selector ?? '')
-  const [frequency, setFrequency] = useState(competitor?.check_frequency_hours ?? 6)
-  const [notes, setNotes] = useState(competitor?.notes ?? '')
-  const [testUrl, setTestUrl] = useState(sampleProduct?.url ?? '')
-  const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<TestResult | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [saleSelector, setSaleSelector]   = useState(competitor?.sale_price_selector ?? '')
+  const [regularSelector, setRegularSelector] = useState(competitor?.price_selector ?? '')
+  const [frequency, setFrequency]         = useState(competitor?.check_frequency_hours ?? 6)
+  const [notes, setNotes]                 = useState(competitor?.notes ?? '')
+  const [testUrl, setTestUrl]             = useState(sampleProduct?.url ?? '')
+  const [testing, setTesting]             = useState(false)
+  const [testResult, setTestResult]       = useState<TestResult | null>(null)
+  const [saving, setSaving]               = useState(false)
+  const [saved, setSaved]                 = useState(false)
 
   async function handleTest() {
-    if (!selector || !testUrl) return
+    if (!testUrl || (!saleSelector && !regularSelector)) return
     setTesting(true)
     setTestResult(null)
     try {
       const res = await fetch('/api/scrape/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: testUrl, selector }),
+        body: JSON.stringify({
+          url: testUrl,
+          sale_price_selector: saleSelector || null,
+          price_selector: regularSelector || null,
+        }),
       })
       const result = await res.json()
       setTestResult(result)
     } catch {
-      setTestResult({ price: null, error: 'Request failed', duration_ms: 0 })
+      setTestResult({ price: null, error: 'Request failed', duration_ms: 0, selector_used: null })
     } finally {
       setTesting(false)
     }
@@ -72,7 +79,8 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
       body: JSON.stringify({
         competitor_id: competitor.id,
         scrape_method: method,
-        price_selector: selector,
+        sale_price_selector: saleSelector || null,
+        price_selector: regularSelector || null,
         check_frequency_hours: frequency,
         notes,
         go_live: true,
@@ -84,8 +92,9 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
   }
 
   const pendingCount = competitor?.competitor_products?.length ?? 0
+  const hasSelector = !!(saleSelector || regularSelector)
   const confidence = testResult?.price
-    ? Math.min(95, 70 + (testResult.duration_ms < 500 ? 20 : testResult.duration_ms < 2000 ? 10 : 0) + (selector.includes('.') ? 5 : 0))
+    ? Math.min(95, 70 + (testResult.duration_ms < 500 ? 20 : testResult.duration_ms < 2000 ? 10 : 0) + (hasSelector ? 5 : 0))
     : 0
 
   if (!competitor) {
@@ -148,15 +157,35 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
           </div>
         </div>
 
-        {/* Selector */}
+        {/* Sale price selector */}
         <div>
-          <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Price CSS Selector</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Sale Price Selector</div>
+            <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(0,229,160,0.1)', color: 'var(--accent)', border: '1px solid rgba(0,229,160,0.2)', fontFamily: 'DM Mono, monospace' }}>tried first</span>
+          </div>
           <input
-            value={selector}
-            onChange={e => setSelector(e.target.value)}
-            placeholder=".price, #product-price, .woocommerce-Price-amount"
-            style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-bright)', borderRadius: 7, padding: '9px 12px', fontFamily: 'DM Mono, monospace', fontSize: 11.5, color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
+            value={saleSelector}
+            onChange={e => setSaleSelector(e.target.value)}
+            placeholder=".price ins .woocommerce-Price-amount, .sale-price"
+            style={{ width: '100%', background: 'var(--bg)', border: `1px solid ${saleSelector ? 'rgba(0,229,160,0.25)' : 'var(--border-bright)'}`, borderRadius: 7, padding: '9px 12px', fontFamily: 'DM Mono, monospace', fontSize: 11.5, color: 'var(--text)', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
           />
+        </div>
+
+        {/* Regular price selector */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Regular Price Selector</div>
+            <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(140,149,168,0.1)', color: 'var(--text-muted)', border: '1px solid var(--border)', fontFamily: 'DM Mono, monospace' }}>fallback</span>
+          </div>
+          <input
+            value={regularSelector}
+            onChange={e => setRegularSelector(e.target.value)}
+            placeholder=".price .woocommerce-Price-amount, .regular-price"
+            style={{ width: '100%', background: 'var(--bg)', border: `1px solid ${regularSelector ? 'rgba(140,149,168,0.25)' : 'var(--border-bright)'}`, borderRadius: 7, padding: '9px 12px', fontFamily: 'DM Mono, monospace', fontSize: 11.5, color: 'var(--text)', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
+          />
+          <div className="font-mono" style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 5 }}>
+            If the item is not on sale the sale selector will return nothing — the regular selector is used as fallback.
+          </div>
         </div>
 
         {/* Frequency */}
@@ -194,6 +223,11 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
                 <div className="font-display" style={{ fontWeight: 800, fontSize: 26, color: 'var(--accent)', letterSpacing: '-1px' }}>£{testResult.price.toFixed(2)}</div>
                 <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
                   Extracted in {testResult.duration_ms}ms · {method}
+                  {testResult.selector_used && (
+                    <span style={{ marginLeft: 8, color: testResult.selector_used === saleSelector ? 'var(--accent)' : 'var(--text-muted)' }}>
+                      · used {testResult.selector_used === saleSelector ? 'sale' : 'regular'} selector
+                    </span>
+                  )}
                 </div>
                 <div style={{ marginTop: 10, height: 3, background: 'var(--surface2)', borderRadius: 2, overflow: 'hidden' }}>
                   <div style={{ height: '100%', background: 'var(--accent)', borderRadius: 2, width: `${confidence}%`, transition: 'width 0.5s' }} />
@@ -205,7 +239,7 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
               </>
             ) : (
               <div style={{ color: 'var(--red)', fontSize: 12.5 }}>
-                ✗ {testResult.error ?? 'Price not found — check your selector'}
+                ✗ {testResult.error ?? 'Price not found — check your selectors'}
               </div>
             )}
           </div>
@@ -215,15 +249,15 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={handleTest}
-            disabled={testing || !selector || !testUrl}
-            style={{ flex: 1, padding: '9px', borderRadius: 7, background: 'var(--surface2)', color: 'var(--text-dim)', fontSize: 13, border: '1px solid var(--border-bright)', cursor: 'pointer', transition: 'all 0.15s', opacity: (!selector || !testUrl) ? 0.5 : 1 }}
+            disabled={testing || !hasSelector || !testUrl}
+            style={{ flex: 1, padding: '9px', borderRadius: 7, background: 'var(--surface2)', color: 'var(--text-dim)', fontSize: 13, border: '1px solid var(--border-bright)', cursor: 'pointer', transition: 'all 0.15s', opacity: (!hasSelector || !testUrl) ? 0.5 : 1 }}
           >
             {testing ? '⏳ Testing...' : '🔄 Test Scrape'}
           </button>
           <button
             onClick={handleGoLive}
-            disabled={saving || !selector || saved}
-            style={{ flex: 1.5, padding: '9px', borderRadius: 7, background: saved ? 'rgba(0,229,160,0.6)' : 'var(--accent)', color: '#060810', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', transition: 'all 0.15s', opacity: !selector ? 0.5 : 1 }}
+            disabled={saving || !hasSelector || saved}
+            style={{ flex: 1.5, padding: '9px', borderRadius: 7, background: saved ? 'rgba(0,229,160,0.6)' : 'var(--accent)', color: '#060810', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', transition: 'all 0.15s', opacity: !hasSelector ? 0.5 : 1 }}
           >
             {saved ? `✓ ${pendingCount} products going live...` : saving ? 'Activating...' : `✓ Activate ${pendingCount} Products`}
           </button>
