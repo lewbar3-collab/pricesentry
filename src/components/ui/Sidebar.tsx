@@ -57,7 +57,7 @@ export default function Sidebar({ profile, impersonating = false }: SidebarProps
       style={{
         background: 'var(--surface)',
         borderRight: '1px solid var(--border)',
-        width: 220,
+        width: 248,
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
@@ -72,7 +72,9 @@ export default function Sidebar({ profile, impersonating = false }: SidebarProps
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <img src="/logo-icon.svg" alt="PricingSentry" style={{ width: 32, height: 32, flexShrink: 0, filter: impersonating ? 'hue-rotate(200deg)' : 'none', transition: 'filter 0.2s' }} />
           <div>
-            <div className="font-display" style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.5px' }}>PricingSentry</div>
+            <div className="font-display" style={{ fontWeight: 800, fontSize: 15, letterSpacing: '-0.3px', lineHeight: 1.1 }}>
+                Pricing<span style={{ color: 'var(--accent)' }}>Sentry</span>
+              </div>
             <div
               className="font-mono"
               style={{

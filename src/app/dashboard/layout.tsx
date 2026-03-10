@@ -6,7 +6,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const impersonatedId = await getImpersonatedUserId()
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: '100vh' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '248px 1fr', minHeight: '100vh' }}>
       <Sidebar profile={profile} impersonating={!!impersonatedId} />
       <main style={{ padding: '28px 32px', overflowX: 'hidden' }}>
         {children}

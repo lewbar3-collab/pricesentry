@@ -53,8 +53,8 @@ export default function LoginPage() {
       <div className="animate-fade-up" style={{ width: '100%', maxWidth: 420 }}>
 
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <img src="/logo.svg" alt="PricingSentry" style={{ width: 260, height: 'auto', display: 'inline-block' }} />
+        <div style={{ textAlign: 'center', marginBottom: 32, padding: '0 20px' }}>
+          <img src="/logo.svg" alt="PricingSentry" style={{ width: '100%', maxWidth: 340, height: 'auto', display: 'inline-block' }} />
         </div>
 
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>

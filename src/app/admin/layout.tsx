@@ -5,7 +5,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const profile = await requireAdmin()
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: '100vh' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '248px 1fr', minHeight: '100vh' }}>
       <Sidebar profile={profile} />
       <main style={{ padding: '28px 32px', overflowX: 'hidden' }}>
         {children}
