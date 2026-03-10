@@ -36,7 +36,7 @@ export default function TeamPage() {
     })
   }, [])
 
-  const limits = planInfo ? getPlanLimits(planInfo.plan) : getPlanLimits('starter')
+  const limits = getPlanLimits(planInfo?.plan ?? 'starter')
   const activeCount = members.filter(m => m.status === 'active').length
   const totalSeats = activeCount + 1 // +1 for owner
   const seatsLeft = limits.seats === 999 ? null : limits.seats - totalSeats
@@ -82,7 +82,7 @@ export default function TeamPage() {
       </div>
 
       {/* Plan + seats overview */}
-      <div className="animate-fade-up" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24 }}>
+      <div className="animate-fade-up" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24, opacity: loading ? 0 : 1, transition: 'opacity 0.15s ease' }}>
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, padding: '20px 22px' }}>
           <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Current Plan</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
