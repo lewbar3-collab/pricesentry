@@ -2,29 +2,30 @@
 
 import { useState } from 'react'
 
+// No competitor_id = refresh all
 interface Props {
-  competitorId: string
-  label: string
+  competitorIds: string[]
 }
 
-export default function ClientRefreshButton({ competitorId, label }: Props) {
+export default function ClientRefreshButton({ competitorIds }: Props) {
   const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
 
   async function handleRefresh() {
     setStatus('running')
     try {
-      const res = await fetch('/api/cron', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ competitor_id: competitorId }),
-      })
-      if (res.ok) {
-        setStatus('done')
-        setTimeout(() => { setStatus('idle'); window.location.reload() }, 1500)
-      } else {
-        setStatus('error')
-        setTimeout(() => setStatus('idle'), 3000)
-      }
+      // Fire all competitor scrapes in parallel
+      const results = await Promise.all(
+        competitorIds.map(id =>
+          fetch('/api/cron', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ competitor_id: id }),
+          })
+        )
+      )
+      const allOk = results.every(r => r.ok)
+      setStatus(allOk ? 'done' : 'error')
+      setTimeout(() => { setStatus('idle'); window.location.reload() }, 1500)
     } catch {
       setStatus('error')
       setTimeout(() => setStatus('idle'), 3000)
@@ -38,15 +39,10 @@ export default function ClientRefreshButton({ competitorId, label }: Props) {
   return (
     <button
       onClick={handleRefresh}
-      disabled={status === 'running' || status === 'done'}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 7, fontSize: 12.5, fontWeight: 500, background: bg, color, border, cursor: status === 'running' ? 'wait' : 'pointer', transition: 'all 0.2s', fontFamily: 'DM Mono, monospace' }}
+      disabled={status !== 'idle'}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 7, fontSize: 12.5, fontWeight: 500, background: bg, color, border, cursor: status === 'running' ? 'wait' : 'pointer', transition: 'all 0.2s', fontFamily: 'DM Mono, monospace' }}
     >
-      {status === 'running' && <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite', fontSize: 11 }}>↻</span>}
-      {status === 'done' && '✓'}
-      {status === 'error' && '✗'}
-      {status === 'idle' && '↻'}
-      {' '}
-      {status === 'running' ? 'Refreshing...' : status === 'done' ? 'Updated!' : status === 'error' ? 'Failed' : `Refresh ${label}`}
+      {status === 'running' ? '↻ Refreshing...' : status === 'done' ? '✓ Updated!' : status === 'error' ? '✗ Failed' : '↻ Refresh All'}
     </button>
   )
 }

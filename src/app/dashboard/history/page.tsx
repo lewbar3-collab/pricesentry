@@ -45,9 +45,7 @@ export default async function HistoryPage() {
           <p className="animate-fade-up delay-100" style={{ fontSize: 13, color: 'var(--text-dim)' }}>Full price timeline for all tracked products</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          {liveCompetitors.map(c => (
-            <ClientRefreshButton key={c.id} competitorId={c.id} label={c.name || c.domain} />
-          ))}
+          <ClientRefreshButton competitorIds={liveCompetitors.map(c => c.id)} />
         </div>
       </div>
 

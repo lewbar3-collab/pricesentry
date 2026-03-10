@@ -70,9 +70,7 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          {liveCompetitors.map(c => (
-            <ClientRefreshButton key={c.id} competitorId={c.id} label={c.name || c.domain} />
-          ))}
+          <ClientRefreshButton competitorIds={liveCompetitors.map(c => c.id)} />
           <a href="/dashboard/products" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 7, fontSize: 12.5, fontWeight: 500, background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border-bright)', textDecoration: 'none' }}>
             📦 Manage Products
           </a>
