@@ -11,11 +11,15 @@ export async function getSession() {
 }
 
 export async function getProfile(): Promise<Profile | null> {
+  // Use createClient only for auth (session/user) - it has the user's JWT
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data } = await supabase
+  // Use admin client to read profile - ensures we always get fresh data
+  // bypassing any RLS or Next.js fetch cache issues
+  const adminSupabase = await createAdminClient()
+  const { data } = await adminSupabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
@@ -70,15 +74,12 @@ export async function requireClient(): Promise<Profile & { ownerId: string }> {
     .single()
 
   if (membership) {
-    // Load owner profile for plan/limits, but keep member profile for identity
     const { data: ownerProfile } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', membership.owner_id)
       .single()
     if (ownerProfile) {
-      // Return owner profile so data queries use owner's user_id,
-      // but expose both ids for display purposes
       return { ...ownerProfile, ownerId: ownerProfile.id }
     }
   }
