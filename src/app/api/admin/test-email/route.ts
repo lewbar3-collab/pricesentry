@@ -1,9 +1,27 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { sendPriceChangeAlert } from '@/lib/email'
-import { requireAdmin } from '@/lib/auth'
+import { getProfile } from '@/lib/auth'
 
-export async function POST() {
-  await requireAdmin()
+
+async function checkAdmin() {
+  const profile = await getProfile()
+  if (!profile || profile.role !== 'admin') return null
+  return profile
+}
+
+export async function POST(req: NextRequest) {
+  const admin = await checkAdmin()
+  if (!admin) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+
+  const body = await req.json().catch(() => ({}))
+  const toEmail = body.to || process.env.ADMIN_EMAIL
+
+  if (!toEmail) {
+    return NextResponse.json(
+      { error: 'No email — pass { "to": "your@email.com" } in the body, or set ADMIN_EMAIL in Vercel env vars' },
+      { status: 400 }
+    )
+  }
 
   const fakeRule = {
     id: 'test',
@@ -12,7 +30,7 @@ export async function POST() {
     competitor_product_id: 'test',
     trigger: 'drops_by' as const,
     threshold: 2.04,
-    email: process.env.ADMIN_EMAIL!,
+    email: toEmail,
     is_active: true,
     created_at: new Date().toISOString(),
   }
@@ -28,5 +46,5 @@ export async function POST() {
     newPrice: 30.91,
   })
 
-  return NextResponse.json({ success: true, sentTo: process.env.ADMIN_EMAIL })
+  return NextResponse.json({ success: true, sentTo: toEmail })
 }

@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/auth'
+import { getProfile } from '@/lib/auth'
+
+
+async function checkAdmin() {
+  const profile = await getProfile()
+  if (!profile || profile.role !== 'admin') return null
+  return profile
+}
 
 export async function GET() {
-  await requireAdmin()
+  const admin = await checkAdmin()
+  if (!admin) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const supabase = await createAdminClient()
 
   const { data, error } = await supabase
@@ -16,7 +24,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  await requireAdmin()
+  const admin = await checkAdmin()
+  if (!admin) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const supabase = await createAdminClient()
   const body = await req.json()
 

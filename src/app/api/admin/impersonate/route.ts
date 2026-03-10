@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/auth'
+import { getProfile } from '@/lib/auth'
+
+
+async function checkAdmin() {
+  const profile = await getProfile()
+  if (!profile || profile.role !== 'admin') return null
+  return profile
+}
 
 export async function POST(req: NextRequest) {
-  await requireAdmin()
+  const admin = await checkAdmin()
+  if (!admin) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const { user_id } = await req.json()
 
   const res = NextResponse.json({ success: true })
