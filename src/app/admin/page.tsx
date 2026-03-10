@@ -14,9 +14,11 @@ export default async function AdminPage() {
 
   // Pending = no selector set yet, AND has at least one competitor_product assigned
   // OR no selector and was just created (show all unconfigured)
-  const pendingCompetitors = allCompetitors?.filter(c => !c.price_selector) ?? []
+  const isConfigured = (c: { sale_price_selector: string | null; price_selector: string | null }) =>
+    !!(c.sale_price_selector || c.price_selector)
 
-  const liveCompetitors = allCompetitors?.filter(c => c.price_selector) ?? []
+  const pendingCompetitors = allCompetitors?.filter(c => !isConfigured(c)) ?? []
+  const liveCompetitors = allCompetitors?.filter(c => isConfigured(c)) ?? []
   const errorCompetitors = allCompetitors?.filter(c =>
     c.competitor_products?.some((cp: { status: string }) => cp.status === 'error')
   ) ?? []
