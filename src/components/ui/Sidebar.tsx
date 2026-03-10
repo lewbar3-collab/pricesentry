@@ -15,6 +15,7 @@ const clientNav = [
   { label: 'Price History', href: '/dashboard/history', icon: '📊' },
   { label: 'Competitors', href: '/dashboard/competitors', icon: '🏢' },
   { label: 'Products', href: '/dashboard/products', icon: '📦' },
+  { label: 'Team', href: '/dashboard/team', icon: '👥' },
   { label: 'Settings', href: '/dashboard/settings', icon: '⚙️' },
 ]
 

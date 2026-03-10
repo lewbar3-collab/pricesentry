@@ -8,6 +8,7 @@ export interface Profile {
   role: UserRole
   plan: 'starter' | 'pro'
   created_at: string
+  ownerId?: string
 }
 
 export interface Competitor {

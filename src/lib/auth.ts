@@ -36,13 +36,15 @@ export async function requireAdmin() {
   return profile
 }
 
-// For client pages - if admin is impersonating return that profile,
-// otherwise return their own profile (admins can browse client pages as themselves)
-export async function requireClient(): Promise<Profile> {
+// Resolve the "owner" id for data scoping.
+// - If admin impersonating → return impersonated profile
+// - If user is a teammate → return the owner's profile (so they see owner's data)
+// - Otherwise → return own profile
+export async function requireClient(): Promise<Profile & { ownerId: string }> {
   const profile = await getProfile()
   if (!profile) redirect('/login')
 
-  // If admin is impersonating a client, return that client's profile
+  // Admin impersonation
   if (profile.role === 'admin') {
     const cookieStore = await cookies()
     const impersonateId = cookieStore.get('impersonate_user_id')?.value
@@ -53,13 +55,35 @@ export async function requireClient(): Promise<Profile> {
         .select('*')
         .eq('id', impersonateId)
         .single()
-      if (impersonatedProfile) return impersonatedProfile
+      if (impersonatedProfile) return { ...impersonatedProfile, ownerId: impersonatedProfile.id }
     }
-    // Admin with no impersonation - return own profile so they can browse
-    return profile
+    return { ...profile, ownerId: profile.id }
   }
 
-  return profile
+  // Teammate resolution — check if this user is a member of someone else's account
+  const supabase = await createAdminClient()
+  const { data: membership } = await supabase
+    .from('team_members')
+    .select('owner_id')
+    .eq('member_id', profile.id)
+    .eq('status', 'active')
+    .single()
+
+  if (membership) {
+    // Load owner profile for plan/limits, but keep member profile for identity
+    const { data: ownerProfile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', membership.owner_id)
+      .single()
+    if (ownerProfile) {
+      // Return owner profile so data queries use owner's user_id,
+      // but expose both ids for display purposes
+      return { ...ownerProfile, ownerId: ownerProfile.id }
+    }
+  }
+
+  return { ...profile, ownerId: profile.id }
 }
 
 export async function getImpersonatedUserId(): Promise<string | null> {

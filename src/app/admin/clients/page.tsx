@@ -1,67 +1,86 @@
-import { createAdminClient } from '@/lib/supabase/server'
+'use client'
 
-export default async function AdminClientsPage() {
-  const supabase = await createAdminClient()
+import { useState, useEffect } from 'react'
+import { PLAN_LIMITS } from '@/lib/plans'
+import type { Plan } from '@/lib/plans'
 
-  const { data: clients } = await supabase
-    .from('profiles')
-    .select('*, products(count)')
-    .eq('role', 'client')
-    .order('created_at', { ascending: false })
+interface Client {
+  id: string
+  email: string
+  company_name: string | null
+  plan: string
+  created_at: string
+}
 
-  const gradients = [
-    'linear-gradient(135deg,#4d9fff,#00e5a0)',
-    'linear-gradient(135deg,#ff4d6a,#ffb83f)',
-    'linear-gradient(135deg,#a78bfa,#4d9fff)',
-    'linear-gradient(135deg,#00e5a0,#4d9fff)',
-    'linear-gradient(135deg,#ffb83f,#ff4d6a)',
-  ]
+export default function AdminClientsPage() {
+  const [clients, setClients] = useState<Client[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/admin/clients').then(r => r.json()).then(data => {
+      setClients(Array.isArray(data) ? data : [])
+      setLoading(false)
+    })
+  }, [])
+
+  async function handlePlanChange(clientId: string, plan: string) {
+    setSaving(clientId)
+    const res = await fetch('/api/admin/clients', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: clientId, plan }),
+    })
+    const updated = await res.json()
+    setClients(prev => prev.map(c => c.id === clientId ? { ...c, plan: updated.plan } : c))
+    setSaving(null)
+  }
 
   return (
     <div>
       <div style={{ marginBottom: 28 }}>
-        <h1 className="font-display animate-fade-up" style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.8px', marginBottom: 5 }}>Clients</h1>
-        <p className="animate-fade-up delay-100" style={{ fontSize: 13, color: 'var(--text-dim)' }}>{clients?.length ?? 0} registered clients</p>
+        <h1 className="font-display" style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.8px', marginBottom: 5 }}>Clients</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-dim)' }}>{clients.length} registered client{clients.length !== 1 ? 's' : ''}</p>
       </div>
 
-      <div style={{ display: 'grid', gap: 12 }}>
-        {clients?.map((client, i) => {
-          const initials = (client.company_name || client.email).slice(0, 2).toUpperCase()
-          const productCount = client.products?.[0]?.count ?? 0
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 180px 120px', padding: '10px 20px', borderBottom: '1px solid var(--border)' }}>
+          {['Client', 'Company', 'Plan', 'Joined'].map(h => (
+            <div key={h} className="font-mono" style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{h}</div>
+          ))}
+        </div>
 
+        {loading ? (
+          <div style={{ padding: '40px 20px', color: 'var(--text-muted)', fontSize: 13 }}>Loading...</div>
+        ) : clients.length === 0 ? (
+          <div style={{ padding: '40px 20px', color: 'var(--text-muted)', fontSize: 13 }}>No clients yet</div>
+        ) : clients.map(client => {
+          const planConfig = PLAN_LIMITS[(client.plan as Plan)] ?? PLAN_LIMITS.starter
           return (
-            <div
-              key={client.id}
-              className="animate-fade-up"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 16, animationDelay: `${0.1 + i * 0.05}s` }}
-            >
-              <div style={{ width: 44, height: 44, borderRadius: 11, background: gradients[i % gradients.length], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, flexShrink: 0 }} className="font-display">
-                {initials}
+            <div key={client.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 180px 120px', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 500 }}>{client.email}</div>
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 3 }}>{client.company_name || 'Unnamed Company'}</div>
-                <div className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {client.email} · Joined {new Date(client.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </div>
+              <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{client.company_name ?? '—'}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <select
+                  value={client.plan}
+                  onChange={e => handlePlanChange(client.id, e.target.value)}
+                  disabled={saving === client.id}
+                  style={{ background: 'var(--bg)', border: `1px solid ${planConfig.colourBorder}`, borderRadius: 7, padding: '5px 10px', fontFamily: 'DM Mono, monospace', fontSize: 11, color: planConfig.colour, outline: 'none', cursor: 'pointer', appearance: 'none' }}
+                >
+                  {Object.entries(PLAN_LIMITS).map(([key, val]) => (
+                    <option key={key} value={key}>{val.label}</option>
+                  ))}
+                </select>
+                {saving === client.id && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>saving...</span>}
               </div>
-              <div style={{ textAlign: 'center', marginRight: 16 }}>
-                <div className="font-display" style={{ fontWeight: 700, fontSize: 22, color: 'var(--text)' }}>{productCount}</div>
-                <div className="font-mono" style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Products</div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 12.5, fontWeight: 500, color: client.plan === 'pro' ? 'var(--accent)' : 'var(--text-muted)', background: client.plan === 'pro' ? 'var(--accent-dim)' : 'var(--surface2)', border: `1px solid ${client.plan === 'pro' ? 'rgba(0,229,160,0.2)' : 'var(--border)'}`, padding: '3px 10px', borderRadius: 6 }} className="font-mono">
-                  {client.plan?.toUpperCase()}
-                </div>
+              <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                {new Date(client.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
               </div>
             </div>
           )
         })}
-
-        {clients?.length === 0 && (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-            No clients yet. Clients appear here after they register.
-          </div>
-        )}
       </div>
     </div>
   )
