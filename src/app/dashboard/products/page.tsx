@@ -108,6 +108,11 @@ export default function ProductsPage() {
     e.preventDefault(); setSavingCp(true)
     const res = await fetch('/api/competitor-products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ product_id: productId, competitor_id: cpCompetitorId, url: cpUrl }) })
     const cp  = await res.json()
+    if (!res.ok) {
+      alert(cp.error ?? 'Failed to add competitor URL')
+      setSavingCp(false)
+      return
+    }
     setProducts(prev => prev.map(p => p.id === productId ? { ...p, competitor_products: [...(p.competitor_products ?? []), cp] } : p))
     setCpUrl(''); setAddingCompetitorFor(null); setSavingCp(false)
   }
