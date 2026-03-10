@@ -7,23 +7,32 @@ export async function GET() {
   const supabase = await createAdminClient()
   const ownerId = profile.ownerId ?? profile.id
 
-  const { data: products } = await supabase
+  // Try to insert a test product and capture the exact error
+  const { data: testInsert, error: insertError } = await supabase
     .from('products')
-    .select('id, name, user_id')
-    .eq('user_id', ownerId)
-    .limit(5)
+    .insert({ user_id: ownerId, name: '__debug_test__', category: null })
+    .select()
+    .single()
 
-  const { data: allProducts } = await supabase
-    .from('products')
-    .select('id, name, user_id')
-    .limit(5)
+  // Clean up if it succeeded
+  if (testInsert?.id) {
+    await supabase.from('products').delete().eq('id', testInsert.id)
+  }
+
+  // Check profiles table columns
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', ownerId)
+    .single()
 
   return NextResponse.json({
     profile_id: profile.id,
     profile_email: profile.email,
     profile_role: profile.role,
     ownerId,
-    products_matching_ownerId: products,
-    all_products_sample: allProducts,
+    test_insert_result: testInsert ?? null,
+    test_insert_error: insertError ?? null,
+    profile_row: profileRow,
   })
 }
