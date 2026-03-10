@@ -70,9 +70,9 @@ export default function Sidebar({ profile, impersonating = false }: SidebarProps
       {/* Logo */}
       <div style={{ padding: '0 20px 24px', borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/logo-icon.svg" alt="PriceSentry" style={{ width: 32, height: 32, flexShrink: 0, filter: impersonating ? 'hue-rotate(200deg)' : 'none', transition: 'filter 0.2s' }} />
+          <img src="/logo-icon.svg" alt="PricingSentry" style={{ width: 32, height: 32, flexShrink: 0, filter: impersonating ? 'hue-rotate(200deg)' : 'none', transition: 'filter 0.2s' }} />
           <div>
-            <div className="font-display" style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.5px' }}>PriceSentry</div>
+            <div className="font-display" style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.5px' }}>PricingSentry</div>
             <div
               className="font-mono"
               style={{

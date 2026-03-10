@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 
 type Mode = 'login' | 'reset'
 
@@ -55,7 +54,7 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <Image src="/logo.svg" alt="PriceSentry" width={240} height={80} style={{ display: 'inline-block' }} priority />
+          <img src="/logo.svg" alt="PricingSentry" style={{ width: 260, height: 'auto', display: 'inline-block' }} />
         </div>
 
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
