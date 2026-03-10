@@ -132,8 +132,8 @@ export default function CompetitorsPage() {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Scraper</div>
-                <div style={{ fontSize: 12, color: comp.price_selector ? 'var(--accent)' : 'var(--amber)' }}>
-                  {comp.price_selector ? '✓ Configured' : '⏳ Pending setup'}
+                <div style={{ fontSize: 12, color: (comp.sale_price_selector || comp.price_selector) ? 'var(--accent)' : 'var(--amber)' }}>
+                  {(comp.sale_price_selector || comp.price_selector) ? '✓ Configured' : '⏳ Pending setup'}
                 </div>
               </div>
               <a

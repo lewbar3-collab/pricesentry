@@ -17,6 +17,7 @@ export interface Competitor {
   name: string
   domain: string
   scrape_method: 'fetch' | 'playwright' | 'proxy'
+  sale_price_selector: string | null
   price_selector: string | null
   needs_proxy: boolean
   check_frequency_hours: number

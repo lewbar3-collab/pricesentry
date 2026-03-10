@@ -28,7 +28,7 @@ export default async function AdminConfigPage() {
 
         {competitors?.map((competitor, i) => {
           const productCount = competitor.products?.[0]?.count ?? 0
-          const hasSelector = !!competitor.price_selector
+          const hasSelector = !!(competitor.sale_price_selector || competitor.price_selector)
           return (
             <div key={competitor.id} className="animate-fade-up" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, padding: '20px 24px', animationDelay: `${0.1 + i * 0.05}s` }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -50,7 +50,7 @@ export default async function AdminConfigPage() {
                 <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px' }}>
                   <div className="font-mono" style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Price Selector</div>
                   <div className="font-mono" style={{ fontSize: 11.5, color: hasSelector ? 'var(--accent)' : 'var(--text-muted)' }}>
-                    {competitor.price_selector || 'Not set'}
+                    {competitor.sale_price_selector || competitor.price_selector || 'Not set'}
                   </div>
                 </div>
                 <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px' }}>
