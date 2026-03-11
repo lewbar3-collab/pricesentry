@@ -39,7 +39,14 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { data, error } = await supabase
     .from('competitors')
-    .insert({ user_id: ownerId, name: body.name, domain: body.domain })
+    .insert({
+      user_id: ownerId,
+      name: body.name,
+      domain: body.domain,
+      is_own_company: body.is_own_company ?? false,
+      delivery_cost: body.delivery_cost ?? null,
+      free_delivery_threshold: body.free_delivery_threshold ?? null,
+    })
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -50,7 +57,9 @@ export async function PATCH(req: NextRequest) {
   const profile = await requireClient()
   const supabase = await createAdminClient()
   const ownerId = profile.ownerId ?? profile.id
-  const { id, name, domain, delivery_cost, free_delivery_threshold, min_order_qty } = await req.json()
+  const body2 = await req.json()
+  const { id, name, domain, delivery_cost, free_delivery_threshold, min_order_qty } = body2
+  const is_own_company = body2.is_own_company
 
   const update: Record<string, unknown> = {
     delivery_cost: delivery_cost ?? null,
@@ -59,6 +68,7 @@ export async function PATCH(req: NextRequest) {
   }
   if (name !== undefined) update.name = name
   if (domain !== undefined) update.domain = domain
+  if (typeof is_own_company === 'boolean') update.is_own_company = is_own_company
 
   const { data, error } = await supabase
     .from('competitors')

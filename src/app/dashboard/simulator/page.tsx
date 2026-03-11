@@ -226,6 +226,7 @@ export default function SimulatorPage() {
   const competitorOptions = selectedProduct?.competitor_products?.filter(cp => cp.last_price) ?? []
   const selectedCp = competitorOptions.find(cp => cp.id === selectedCpId)
   const selectedCompetitor = competitors.find(c => c.id === selectedCp?.competitor_id)
+  const ownCompetitor = competitors.find(c => c.is_own_company)
 
   // Auto-select first product/cp when loaded
   useEffect(() => {
@@ -283,9 +284,9 @@ export default function SimulatorPage() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <h1 className="font-display animate-fade-up" style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.8px', marginBottom: 5 }}>Pricing Simulator</h1>
+        <h1 className="font-display animate-fade-up" style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.8px', marginBottom: 5 }}>Landed Cost Simulator</h1>
         <p className="animate-fade-up delay-100" style={{ fontSize: 13, color: 'var(--text-dim)' }}>
-          Compare landed costs including delivery — find the exact quantity where you become cheaper
+          Compare total landed costs including delivery — find the exact quantity crossover point
         </p>
       </div>
 
@@ -316,7 +317,7 @@ export default function SimulatorPage() {
                     <option value="">— choose a competitor —</option>
                     {competitorOptions.map(cp => (
                       <option key={cp.id} value={cp.id}>
-                        {cp.competitor?.name} — £{Number(cp.last_price).toFixed(2)}
+                        {cp.competitor?.is_own_company ? '🏠 ' : ''}{cp.competitor?.name} — £{Number(cp.last_price).toFixed(2)}
                       </option>
                     ))}
                   </select>
@@ -416,7 +417,9 @@ export default function SimulatorPage() {
                   {/* Your total */}
                   <div style={{ background: 'var(--surface)', border: `2px solid ${cheaper === 'you' ? 'rgba(0,229,160,0.4)' : 'var(--border)'}`, borderRadius: 13, padding: '20px 22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                      <div className="font-display" style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent)' }}>You</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="font-display" style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent)' }}>You</div>
+                      </div>
                       {cheaper === 'you' && <span className="font-mono" style={{ fontSize: 10, background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid rgba(0,229,160,0.25)', padding: '2px 8px', borderRadius: 10 }}>CHEAPER ✓</span>}
                     </div>
                     <div className="font-mono" style={{ fontSize: 32, fontWeight: 800, color: 'var(--accent)', letterSpacing: '-1px', marginBottom: 4 }}>
@@ -444,7 +447,10 @@ export default function SimulatorPage() {
                   {/* Their total */}
                   <div style={{ background: 'var(--surface)', border: `2px solid ${cheaper === 'them' ? 'rgba(167,139,250,0.4)' : 'var(--border)'}`, borderRadius: 13, padding: '20px 22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                      <div className="font-display" style={{ fontWeight: 700, fontSize: 13, color: 'var(--purple)' }}>{selectedCompetitor?.name ?? 'Competitor'}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="font-display" style={{ fontWeight: 700, fontSize: 13, color: selectedCompetitor?.is_own_company ? 'var(--accent)' : 'var(--purple)' }}>{selectedCompetitor?.is_own_company ? '🏠 ' : ''}{selectedCompetitor?.name ?? 'Competitor'}</div>
+                        {selectedCompetitor?.is_own_company && <span className="font-mono" style={{ fontSize: 9, background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid rgba(0,229,160,0.3)', padding: '1px 6px', borderRadius: 10 }}>MY COMPANY</span>}
+                      </div>
                       {cheaper === 'them' && <span className="font-mono" style={{ fontSize: 10, background: 'rgba(167,139,250,0.1)', color: 'var(--purple)', border: '1px solid rgba(167,139,250,0.25)', padding: '2px 8px', borderRadius: 10 }}>CHEAPER</span>}
                     </div>
                     <div className="font-mono" style={{ fontSize: 32, fontWeight: 800, color: 'var(--purple)', letterSpacing: '-1px', marginBottom: 4 }}>

@@ -354,7 +354,12 @@ export default function ProductsPage() {
               {/* Competitor rows */}
               {(product.competitor_products?.length ?? 0) > 0 && (
                 <div style={{ borderTop: '1px solid var(--border)' }}>
-                  {product.competitor_products?.map((cp, i) => {
+                  {[...(product.competitor_products ?? [])].sort((a, b) => {
+                      if (!a.last_price && !b.last_price) return 0
+                      if (!a.last_price) return 1
+                      if (!b.last_price) return -1
+                      return Number(a.last_price) - Number(b.last_price)
+                    }).map((cp, i) => {
                     const cpAlerts = alerts.filter(a => a.competitor_product_id === cp.id)
                     const isLastRow = i === (product.competitor_products?.length ?? 0) - 1
                     const alertOpen = alertFormFor === cp.id

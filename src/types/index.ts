@@ -27,6 +27,7 @@ export interface Competitor {
   delivery_cost: number | null
   free_delivery_threshold: number | null
   min_order_qty: number | null
+  is_own_company: boolean
 }
 
 // YOUR product — what you sell
