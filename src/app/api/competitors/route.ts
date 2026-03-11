@@ -50,15 +50,19 @@ export async function PATCH(req: NextRequest) {
   const profile = await requireClient()
   const supabase = await createAdminClient()
   const ownerId = profile.ownerId ?? profile.id
-  const { id, delivery_cost, free_delivery_threshold, min_order_qty } = await req.json()
+  const { id, name, domain, delivery_cost, free_delivery_threshold, min_order_qty } = await req.json()
+
+  const update: Record<string, unknown> = {
+    delivery_cost: delivery_cost ?? null,
+    free_delivery_threshold: free_delivery_threshold ?? null,
+    min_order_qty: min_order_qty ?? 1,
+  }
+  if (name !== undefined) update.name = name
+  if (domain !== undefined) update.domain = domain
 
   const { data, error } = await supabase
     .from('competitors')
-    .update({
-      delivery_cost: delivery_cost ?? null,
-      free_delivery_threshold: free_delivery_threshold ?? null,
-      min_order_qty: min_order_qty ?? 1,
-    })
+    .update(update)
     .eq('id', id)
     .eq('user_id', ownerId)
     .select()

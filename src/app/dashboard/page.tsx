@@ -130,8 +130,8 @@ export default async function DashboardPage() {
               {/* Competitor rows */}
               {cps.length > 0 && (
                 <div style={{ borderTop: '1px solid var(--border)' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 90px', padding: '8px 18px', borderBottom: '1px solid var(--border)' }}>
-                    {['Competitor', 'Current Price', 'Last Checked', 'Status'].map(h => (
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 90px', padding: '8px 18px', borderBottom: '1px solid var(--border)' }}>
+                    {['Competitor', 'Current Price', 'Delivery', 'Last Checked', 'Status'].map(h => (
                       <div key={h} className="font-mono" style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase' }}>{h}</div>
                     ))}
                   </div>
@@ -140,7 +140,7 @@ export default async function DashboardPage() {
                     const change = cp.last_price && prevPrice ? Number(cp.last_price) - prevPrice : null
                     const isLow = lowestPrice !== null && cp.last_price && Number(cp.last_price) === lowestPrice && cps.filter(c => c.last_price).length > 1
                     return (
-                      <div key={cp.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 90px', alignItems: 'center', padding: '11px 18px', borderBottom: i < cps.length - 1 ? '1px solid var(--border)' : 'none', background: isLow ? 'rgba(0,229,160,0.03)' : 'transparent' }}>
+                      <div key={cp.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 90px', alignItems: 'center', padding: '11px 18px', borderBottom: i < cps.length - 1 ? '1px solid var(--border)' : 'none', background: isLow ? 'rgba(0,229,160,0.03)' : 'transparent' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div style={{ width: 26, height: 26, borderRadius: 6, background: 'linear-gradient(135deg,#4d9fff,#a78bfa)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
                             {cp.competitor?.name?.slice(0, 2).toUpperCase()}
@@ -159,6 +159,23 @@ export default async function DashboardPage() {
                             <span className="font-mono" style={{ fontSize: 10, color: change < 0 ? 'var(--accent)' : 'var(--red)' }}>
                               {change < 0 ? '▼' : '▲'}£{Math.abs(change).toFixed(2)}
                             </span>
+                          )}
+                        </div>
+                        {/* Delivery */}
+                        <div>
+                          {cp.competitor?.delivery_cost !== null && cp.competitor?.delivery_cost !== undefined ? (
+                            <div>
+                              <span className="font-mono" style={{ fontSize: 12, color: 'var(--purple)' }}>
+                                £{Number(cp.competitor.delivery_cost).toFixed(2)}
+                              </span>
+                              {cp.competitor.free_delivery_threshold !== null && cp.competitor.free_delivery_threshold !== undefined && (
+                                <div className="font-mono" style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 1 }}>
+                                  free &gt;£{Number(cp.competitor.free_delivery_threshold).toFixed(0)}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
                           )}
                         </div>
                         <div className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>

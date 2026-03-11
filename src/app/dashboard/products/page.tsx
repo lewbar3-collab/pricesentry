@@ -374,6 +374,20 @@ export default function ProductsPage() {
                             {cp.last_price ? `£${Number(cp.last_price).toFixed(2)}` : '—'}
                           </div>
 
+                          {/* Delivery badge */}
+                          {cp.competitor?.delivery_cost !== null && cp.competitor?.delivery_cost !== undefined && (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
+                              <span className="font-mono" style={{ fontSize: 10, color: 'var(--purple)', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', padding: '2px 7px', borderRadius: 5, whiteSpace: 'nowrap' }}>
+                                🚚 £{Number(cp.competitor.delivery_cost).toFixed(2)}
+                              </span>
+                              {cp.competitor.free_delivery_threshold !== null && cp.competitor.free_delivery_threshold !== undefined && (
+                                <span className="font-mono" style={{ fontSize: 9, color: 'var(--accent)', marginTop: 2 }}>
+                                  free &gt;£{Number(cp.competitor.free_delivery_threshold).toFixed(0)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
                           {/* Status pill */}
                           <span className="font-mono" style={{ fontSize: 10, color: cp.status === 'live' ? 'var(--accent)' : cp.status === 'error' ? 'var(--red)' : 'var(--amber)', background: cp.status === 'live' ? 'var(--accent-dim)' : cp.status === 'error' ? 'rgba(255,77,106,0.1)' : 'var(--amber-dim)', border: `1px solid ${cp.status === 'live' ? 'rgba(0,229,160,0.2)' : cp.status === 'error' ? 'rgba(255,77,106,0.2)' : 'rgba(255,184,63,0.2)'}`, padding: '3px 8px', borderRadius: 5, flexShrink: 0 }}>
                             {cp.status}
