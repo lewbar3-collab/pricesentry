@@ -249,12 +249,12 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
             {testResult.price ? (
               <>
                 <div className="font-display" style={{ fontWeight: 800, fontSize: 26, color: 'var(--accent)', letterSpacing: '-1px' }}>£{testResult.price.toFixed(2)}</div>
-                <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+                <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                   Extracted in {testResult.duration_ms}ms · {method}
                   {testResult.selector_used && (
-                    <span style={{ marginLeft: 8, color: testResult.selector_used.startsWith('shopify_json') ? 'var(--purple)' : testResult.selector_used === saleSelector ? 'var(--accent)' : 'var(--text-muted)' }}>
-                      {testResult.selector_used.startsWith('shopify_json')
-                        ? ` · ${testResult.selector_used.replace('shopify_json:', '').replace('first_variant', 'first variant')}`
+                    <span style={{ marginLeft: 8, color: testResult.selector_used.startsWith('shopify_json') || testResult.selector_used.startsWith('variant') || testResult.selector_used.startsWith('first_variant') ? 'var(--purple)' : testResult.selector_used === saleSelector ? 'var(--accent)' : 'var(--text-muted)' }}>
+                      {(testResult.selector_used.startsWith('shopify_json') || testResult.selector_used.startsWith('variant') || testResult.selector_used.startsWith('first_variant'))
+                        ? ` · ${testResult.selector_used}`
                         : ` · used ${testResult.selector_used === saleSelector ? 'sale' : 'regular'} selector`}
                     </span>
                   )}
