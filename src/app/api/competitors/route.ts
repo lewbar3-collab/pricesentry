@@ -45,3 +45,25 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data, { status: 201 })
 }
+
+export async function PATCH(req: NextRequest) {
+  const profile = await requireClient()
+  const supabase = await createAdminClient()
+  const ownerId = profile.ownerId ?? profile.id
+  const { id, delivery_cost, free_delivery_threshold, min_order_qty } = await req.json()
+
+  const { data, error } = await supabase
+    .from('competitors')
+    .update({
+      delivery_cost: delivery_cost ?? null,
+      free_delivery_threshold: free_delivery_threshold ?? null,
+      min_order_qty: min_order_qty ?? 1,
+    })
+    .eq('id', id)
+    .eq('user_id', ownerId)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+}

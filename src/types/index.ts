@@ -24,6 +24,9 @@ export interface Competitor {
   notes: string | null
   is_active: boolean
   created_at: string
+  delivery_cost: number | null
+  free_delivery_threshold: number | null
+  min_order_qty: number | null
 }
 
 // YOUR product — what you sell
