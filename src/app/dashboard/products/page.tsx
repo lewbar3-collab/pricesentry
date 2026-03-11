@@ -308,7 +308,7 @@ export default function ProductsPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button onClick={() => { setAddingCompetitorFor(addingCompetitorFor === product.id ? null : product.id); if (competitors.filter(c => !c.is_own_company).length > 0) setCpCompetitorId(competitors.filter(c => !c.is_own_company)[0].id); setCpUrl('') }} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 500, background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border-bright)', cursor: 'pointer' }}>
+                    <button onClick={() => { setAddingCompetitorFor(addingCompetitorFor === product.id ? null : product.id); if (competitors.length > 0) setCpCompetitorId(competitors[0].id); setCpUrl('') }} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 500, background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border-bright)', cursor: 'pointer' }}>
                       ＋ Track Competitor Price
                     </button>
                     {deletingId === product.id ? (
@@ -328,7 +328,7 @@ export default function ProductsPage() {
               {addingCompetitorFor === product.id && (
                 <div style={{ padding: '14px 18px', borderTop: '1px solid var(--border)', background: 'rgba(167,139,250,0.03)' }}>
                   <div className="font-mono" style={{ fontSize: 10, color: 'var(--purple)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Assign competitor URL</div>
-                  {competitors.filter(c => !c.is_own_company).length === 0 ? (
+                  {competitors.length === 0 ? (
                     <p style={{ fontSize: 13, color: 'var(--amber)' }}>⚠️ <a href="/dashboard/competitors" style={{ color: 'var(--accent)' }}>Add a competitor</a> first.</p>
                   ) : (
                     <form onSubmit={e => handleAddCompetitorProduct(e, product.id)}>
@@ -336,7 +336,7 @@ export default function ProductsPage() {
                         <div>
                           <label className="font-mono" style={{ display: 'block', fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>Competitor</label>
                           <select value={cpCompetitorId} onChange={e => setCpCompetitorId(e.target.value)} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-bright)', borderRadius: 7, padding: '8px 10px', fontFamily: 'DM Mono, monospace', fontSize: 11.5, color: 'var(--text)', outline: 'none', appearance: 'none' }}>
-                            {competitors.filter(c => !c.is_own_company).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            {competitors.map(c => <option key={c.id} value={c.id}>{c.is_own_company ? '🏠 ' : ''}{c.name}</option>)}
                           </select>
                         </div>
                         <div>
