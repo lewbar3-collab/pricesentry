@@ -74,9 +74,11 @@ async function scrapeShopifyJson(url: string, start: number): Promise<ScrapeResu
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
       'Accept': 'application/json, text/plain, */*',
-      'Accept-Language': 'en-GB,en;q=0.9',
+      'Accept-Language': 'en-GB,en-US;q=0.9',
       'Cache-Control': 'no-cache, no-store',
       'Pragma': 'no-cache',
+      'X-Forwarded-For': '81.2.69.142', // UK IP hint
+      'CF-IPCountry': 'GB',
     },
     cache: 'no-store',
   })

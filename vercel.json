@@ -4,5 +4,13 @@
       "path": "/api/cron",
       "schedule": "0 * * * *"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/scrape/test/route.ts": {
+      "regions": ["lhr1"]
+    },
+    "src/app/api/cron/route.ts": {
+      "regions": ["lhr1"]
+    }
+  }
 }
