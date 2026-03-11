@@ -24,7 +24,7 @@ export default async function DashboardPage() {
 
   const { data: products } = await supabase
     .from('products')
-    .select('*, competitor_products(*, competitor:competitors(id, name, domain))')
+    .select('*, competitor_products(*, competitor:competitors(id, name, domain, delivery_cost, free_delivery_threshold, is_own_company))')
     .eq('user_id', profile.id)
     .order('created_at', { ascending: false })
 

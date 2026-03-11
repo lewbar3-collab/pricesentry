@@ -193,8 +193,19 @@ export default function ProductsPage() {
     if (!file || !productId) return
     setUploadingId(productId)
     try {
-      const form = new FormData(); form.append('file', file); form.append('product_id', productId)
-      const res  = await fetch('/api/products/upload', { method: 'POST', body: form })
+      // Read as base64 and send as JSON to avoid Next.js multipart body-size issues
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload  = () => resolve((reader.result as string).split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const res  = await fetch('/api/products/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: productId, data: base64, mime_type: file.type, ext }),
+      })
       const data = await res.json()
       if (data.url) {
         setProducts(prev => prev.map(p => p.id === productId ? { ...p, image_url: data.url } : p))

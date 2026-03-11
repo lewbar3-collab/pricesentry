@@ -2,55 +2,35 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { requireClient } from '@/lib/auth'
 
-export const config = {
-  api: { bodyParser: false },
-}
-
-// Increase Vercel function body size limit
-export const maxDuration = 30
-
 export async function POST(req: NextRequest) {
   try {
     const profile  = await requireClient()
     const supabase = await createAdminClient()
     const ownerId  = profile.ownerId ?? profile.id
 
-    const formData  = await req.formData()
-    const file      = formData.get('file') as File | null
-    const productId = formData.get('product_id') as string | null
+    const { product_id, data: base64, mime_type, ext } = await req.json()
 
-    if (!file || !productId) {
-      return NextResponse.json({ error: 'Missing file or product_id' }, { status: 400 })
-    }
-
-    // Check file size (4MB limit)
-    if (file.size > 4 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Image must be under 4MB' }, { status: 413 })
+    if (!product_id || !base64 || !mime_type) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
     // Verify product belongs to this user
     const { data: product } = await supabase
       .from('products')
       .select('id')
-      .eq('id', productId)
+      .eq('id', product_id)
       .eq('user_id', ownerId)
       .single()
-
     if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 })
 
-    // Convert File to ArrayBuffer → Buffer for Supabase storage
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer      = Buffer.from(arrayBuffer)
-
-    const ext  = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
-    const path = `${ownerId}/${productId}.${ext}`
+    // Decode base64 → Buffer
+    const buffer   = Buffer.from(base64, 'base64')
+    const fileExt  = (ext ?? 'jpg').toLowerCase().replace(/^\./, '')
+    const path     = `${ownerId}/${product_id}.${fileExt}`
 
     const { error: uploadError } = await supabase.storage
       .from('product-images')
-      .upload(path, buffer, {
-        upsert:      true,
-        contentType: file.type || `image/${ext}`,
-      })
+      .upload(path, buffer, { upsert: true, contentType: mime_type })
 
     if (uploadError) {
       console.error('[upload] storage error:', uploadError.message)
@@ -61,18 +41,12 @@ export async function POST(req: NextRequest) {
       .from('product-images')
       .getPublicUrl(path)
 
-    await supabase
-      .from('products')
-      .update({ image_url: publicUrl })
-      .eq('id', productId)
+    await supabase.from('products').update({ image_url: publicUrl }).eq('id', product_id)
 
     return NextResponse.json({ url: publicUrl })
 
   } catch (err) {
     console.error('[upload] unhandled:', err)
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Unknown server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 })
   }
 }
