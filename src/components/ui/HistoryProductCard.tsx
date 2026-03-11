@@ -15,6 +15,7 @@ interface CompetitorTab {
   status: string
   lastPrice: number | null
   history: HistoryEntry[]
+  is_own_company?: boolean
 }
 
 interface Props {
@@ -138,7 +139,7 @@ export default function HistoryProductCard({ product, competitorTabs, animationD
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
                   padding: '10px 18px', border: 'none', cursor: 'pointer',
-                  background: isActive ? 'var(--surface2)' : 'transparent',
+                  background: isActive ? (t.is_own_company ? 'rgba(0,229,160,0.06)' : 'var(--surface2)') : 'transparent',
                   borderBottom: isActive ? '2px solid var(--accent)' : '2px solid transparent',
                   color: isActive ? 'var(--text)' : 'var(--text-muted)',
                   fontFamily: 'DM Sans, sans-serif',
@@ -146,15 +147,18 @@ export default function HistoryProductCard({ product, competitorTabs, animationD
                   whiteSpace: 'nowrap', transition: 'all 0.15s', flexShrink: 0,
                 }}
               >
-                <div style={{ width: 22, height: 22, borderRadius: 6, background: 'linear-gradient(135deg,#4d9fff,#a78bfa)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                  {t.name.slice(0, 2).toUpperCase()}
+                <div style={{ width: 22, height: 22, borderRadius: 6, background: t.is_own_company ? 'var(--accent-dim)' : 'linear-gradient(135deg,#4d9fff,#a78bfa)', border: t.is_own_company ? '1px solid rgba(0,229,160,0.4)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: t.is_own_company ? 12 : 9, fontWeight: 700, color: t.is_own_company ? 'var(--accent)' : '#fff', flexShrink: 0 }}>
+                  {t.is_own_company ? '🏠' : t.name.slice(0, 2).toUpperCase()}
                 </div>
                 {t.name}
+                {t.is_own_company && (
+                  <span className="font-mono" style={{ fontSize: 9, background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid rgba(0,229,160,0.3)', padding: '1px 5px', borderRadius: 8 }}>YOU</span>
+                )}
                 <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: sc.bg, color: sc.text, border: `1px solid ${sc.border}`, fontFamily: 'DM Mono, monospace' }}>
                   {t.status}
                 </span>
                 {t.lastPrice && (
-                  <span className="font-mono" style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                  <span className="font-mono" style={{ fontSize: 11, color: t.is_own_company ? 'var(--accent)' : 'var(--text-dim)', fontWeight: t.is_own_company ? 700 : 400 }}>
                     £{Number(t.lastPrice).toFixed(2)}
                   </span>
                 )}
@@ -166,11 +170,12 @@ export default function HistoryProductCard({ product, competitorTabs, animationD
 
       {/* Single competitor label (no tabs needed) */}
       {competitorTabs.length === 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
-          <div style={{ width: 22, height: 22, borderRadius: 6, background: 'linear-gradient(135deg,#4d9fff,#a78bfa)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff' }}>
-            {tab.name.slice(0, 2).toUpperCase()}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', borderTop: '1px solid var(--border)', background: tab.is_own_company ? 'rgba(0,229,160,0.04)' : 'var(--surface2)' }}>
+          <div style={{ width: 22, height: 22, borderRadius: 6, background: tab.is_own_company ? 'var(--accent-dim)' : 'linear-gradient(135deg,#4d9fff,#a78bfa)', border: tab.is_own_company ? '1px solid rgba(0,229,160,0.4)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: tab.is_own_company ? 12 : 9, fontWeight: 700, color: tab.is_own_company ? 'var(--accent)' : '#fff' }}>
+            {tab.is_own_company ? '🏠' : tab.name.slice(0, 2).toUpperCase()}
           </div>
           <span style={{ fontSize: 13, fontWeight: 500 }}>{tab.name}</span>
+          {tab.is_own_company && <span className="font-mono" style={{ fontSize: 9, background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid rgba(0,229,160,0.3)', padding: '1px 6px', borderRadius: 8 }}>YOUR COMPANY</span>}
           <span className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>{tab.domain}</span>
           {(() => { const sc = STATUS_COLOURS[tab.status] ?? STATUS_COLOURS.pending; return (
             <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: sc.bg, color: sc.text, border: `1px solid ${sc.border}`, fontFamily: 'DM Mono, monospace' }}>{tab.status}</span>

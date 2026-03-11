@@ -210,6 +210,7 @@ export default function SimulatorPage() {
   const [quantity, setQuantity]                   = useState(5)
   const [maxQty, setMaxQty]                       = useState(30)
   const [showDeliveryEditor, setShowDeliveryEditor] = useState(false)
+  const [showMyDeliveryEditor, setShowMyDeliveryEditor] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -223,28 +224,56 @@ export default function SimulatorPage() {
   }, [])
 
   const selectedProduct = products.find(p => p.id === selectedProductId)
-  const competitorOptions = selectedProduct?.competitor_products?.filter(cp => cp.last_price) ?? []
+
+  // Own company cp on this product (if tracked)
+  const ownCp = selectedProduct?.competitor_products?.find(cp => {
+    const comp = competitors.find(c => c.id === cp.competitor_id)
+    return comp?.is_own_company && cp.last_price
+  })
+  const ownCompetitorOnProduct = ownCp ? competitors.find(c => c.id === ownCp.competitor_id) : null
+  const hasOwnCpOnProduct = !!ownCp
+
+  // Competitor options = only non-own-company entries with a price
+  const competitorOptions = (selectedProduct?.competitor_products ?? []).filter(cp => {
+    const comp = competitors.find(c => c.id === cp.competitor_id)
+    return cp.last_price && !comp?.is_own_company
+  })
   const selectedCp = competitorOptions.find(cp => cp.id === selectedCpId)
   const selectedCompetitor = competitors.find(c => c.id === selectedCp?.competitor_id)
   const ownCompetitor = competitors.find(c => c.is_own_company)
 
-  // Auto-select first product/cp when loaded
+  // Auto-select first product when loaded
   useEffect(() => {
     if (products.length && !selectedProductId) {
       const first = products.find(p => p.competitor_products?.some(cp => cp.last_price))
-      if (first) {
-        setSelectedProductId(first.id)
-        const firstCp = first.competitor_products?.find(cp => cp.last_price)
-        if (firstCp) setSelectedCpId(firstCp.id)
-      }
+      if (first) setSelectedProductId(first.id)
     }
   }, [products])
 
-  // Auto-select first cp when product changes
+  // When product changes: reset cp selection + auto-fill own pricing if available
   useEffect(() => {
-    if (selectedProduct) {
-      const firstCp = selectedProduct.competitor_products?.find(cp => cp.last_price)
-      if (firstCp) setSelectedCpId(firstCp.id)
+    if (!selectedProduct) return
+    // Pick first non-own competitor with a price
+    const firstRival = selectedProduct.competitor_products?.find(cp => {
+      const comp = competitors.find(c => c.id === cp.competitor_id)
+      return cp.last_price && !comp?.is_own_company
+    })
+    setSelectedCpId(firstRival?.id ?? '')
+
+    // If own company is tracked on this product, auto-fill "Your Pricing"
+    const ownEntry = selectedProduct.competitor_products?.find(cp => {
+      const comp = competitors.find(c => c.id === cp.competitor_id)
+      return comp?.is_own_company && cp.last_price
+    })
+    if (ownEntry) {
+      const ownComp = competitors.find(c => c.id === ownEntry.competitor_id)
+      setMyUnitPrice(String(ownEntry.last_price ?? ''))
+      setMyDelivery(ownComp?.delivery_cost?.toString() ?? '')
+      setMyThreshold(ownComp?.free_delivery_threshold?.toString() ?? '')
+    } else {
+      setMyUnitPrice('')
+      setMyDelivery('')
+      setMyThreshold('')
     }
   }, [selectedProductId])
 
@@ -325,26 +354,75 @@ export default function SimulatorPage() {
               </div>
             </div>
 
-            {/* Your pricing */}
-            <div className="animate-fade-up delay-100" style={{ background: 'var(--surface)', border: '1px solid rgba(0,229,160,0.2)', borderRadius: 13, padding: '18px 20px' }}>
-              <div className="font-display" style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: 'var(--accent)' }}>🏷 Your Pricing</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div>
-                  <label style={labelStyle}>Your Unit Price</label>
-                  {poundInput(myUnitPrice, setMyUnitPrice, '0.00')}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div>
-                    <label style={labelStyle}>Delivery Cost</label>
-                    {poundInput(myDelivery, setMyDelivery, '0.00')}
+            {/* Your pricing — auto-populated if own company tracked, else manual */}
+            {hasOwnCpOnProduct ? (
+              <div className="animate-fade-up delay-100" style={{ background: 'rgba(0,229,160,0.04)', border: '1px solid rgba(0,229,160,0.3)', borderRadius: 13, padding: '18px 20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>🏠</span>
+                    <div className="font-display" style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent)' }}>{ownCompetitorOnProduct?.name ?? 'Your Company'}</div>
+                    <span className="font-mono" style={{ fontSize: 9, background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid rgba(0,229,160,0.3)', padding: '1px 6px', borderRadius: 8 }}>AUTO-FILLED</span>
                   </div>
+                  <button onClick={() => setShowMyDeliveryEditor(!showMyDeliveryEditor)} style={{ fontSize: 11, color: 'var(--text-muted)', background: 'none', border: '1px solid var(--border)', borderRadius: 5, padding: '3px 8px', cursor: 'pointer' }}>
+                    {showMyDeliveryEditor ? 'Close' : '✏️ Edit'}
+                  </button>
+                </div>
+                {showMyDeliveryEditor ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div>
+                      <label style={labelStyle}>Your Unit Price</label>
+                      {poundInput(myUnitPrice, setMyUnitPrice, '0.00')}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div>
+                        <label style={labelStyle}>Delivery Cost</label>
+                        {poundInput(myDelivery, setMyDelivery, '0.00')}
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Free Over</label>
+                        {poundInput(myThreshold, setMyThreshold, 'e.g. 50')}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 12px' }}>
+                      <div className="font-mono" style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Unit Price</div>
+                      <div className="font-mono" style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent)' }}>
+                        {myUnitPrice ? `£${parseFloat(myUnitPrice).toFixed(2)}` : '—'}
+                      </div>
+                    </div>
+                    <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 12px' }}>
+                      <div className="font-mono" style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Delivery</div>
+                      <div className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+                        {myDelivery ? `£${parseFloat(myDelivery).toFixed(2)}` : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>not set</span>}
+                      </div>
+                      {myThreshold && <div className="font-mono" style={{ fontSize: 9.5, color: 'var(--accent)', marginTop: 2 }}>free over £{parseFloat(myThreshold).toFixed(2)}</div>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="animate-fade-up delay-100" style={{ background: 'var(--surface)', border: '1px solid rgba(0,229,160,0.2)', borderRadius: 13, padding: '18px 20px' }}>
+                <div className="font-display" style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: 'var(--accent)' }}>🏷 Your Pricing</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div>
-                    <label style={labelStyle}>Free Over</label>
-                    {poundInput(myThreshold, setMyThreshold, 'e.g. 50')}
+                    <label style={labelStyle}>Your Unit Price</label>
+                    {poundInput(myUnitPrice, setMyUnitPrice, '0.00')}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div>
+                      <label style={labelStyle}>Delivery Cost</label>
+                      {poundInput(myDelivery, setMyDelivery, '0.00')}
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Free Over</label>
+                      {poundInput(myThreshold, setMyThreshold, 'e.g. 50')}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Competitor delivery */}
             {selectedCompetitor && (
@@ -418,7 +496,8 @@ export default function SimulatorPage() {
                   <div style={{ background: 'var(--surface)', border: `2px solid ${cheaper === 'you' ? 'rgba(0,229,160,0.4)' : 'var(--border)'}`, borderRadius: 13, padding: '20px 22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div className="font-display" style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent)' }}>You</div>
+                        {ownCompetitorOnProduct && <span style={{ fontSize: 14 }}>🏠</span>}
+                        <div className="font-display" style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent)' }}>{ownCompetitorOnProduct?.name ?? 'You'}</div>
                       </div>
                       {cheaper === 'you' && <span className="font-mono" style={{ fontSize: 10, background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid rgba(0,229,160,0.25)', padding: '2px 8px', borderRadius: 10 }}>CHEAPER ✓</span>}
                     </div>
@@ -510,7 +589,7 @@ export default function SimulatorPage() {
                     <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>dashed line = current qty ({quantity})</div>
                   </div>
                   <CostChart
-                    myPrice={myPriceNum!} myLabel="You" myDelivery={myDelNum} myThreshold={myThreshNum}
+                    myPrice={myPriceNum!} myLabel={ownCompetitorOnProduct?.name ?? "You"} myDelivery={myDelNum} myThreshold={myThreshNum}
                     theirPrice={theirUnitPrice!} theirLabel={selectedCompetitor?.name ?? 'Competitor'} theirDelivery={theirDelNum} theirThreshold={theirThreshNum}
                     maxQty={maxQty} currentQty={quantity}
                   />

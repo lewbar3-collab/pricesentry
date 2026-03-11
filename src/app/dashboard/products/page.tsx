@@ -368,11 +368,14 @@ export default function ProductsPage() {
                       <div key={cp.id}>
                         {/* Competitor row */}
                         <div style={{ display: 'flex', alignItems: 'center', padding: '11px 18px', borderBottom: (!isLastRow || alertOpen || cpAlerts.length > 0) ? '1px solid var(--border)' : 'none', gap: 12 }}>
-                          <div style={{ width: 28, height: 28, borderRadius: 7, background: 'linear-gradient(135deg,#4d9fff,#a78bfa)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-                            {cp.competitor?.name?.slice(0, 2).toUpperCase()}
+                          <div style={{ width: 28, height: 28, borderRadius: 7, background: cp.competitor?.is_own_company ? 'var(--accent-dim)' : 'linear-gradient(135deg,#4d9fff,#a78bfa)', border: cp.competitor?.is_own_company ? '1px solid rgba(0,229,160,0.4)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: cp.competitor?.is_own_company ? 14 : 11, fontWeight: 700, flexShrink: 0, color: cp.competitor?.is_own_company ? 'var(--accent)' : '#fff' }}>
+                            {cp.competitor?.is_own_company ? '🏠' : cp.competitor?.name?.slice(0, 2).toUpperCase()}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 12.5, fontWeight: 500 }}>{cp.competitor?.name}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontSize: 12.5, fontWeight: 500, color: cp.competitor?.is_own_company ? 'var(--accent)' : 'inherit' }}>{cp.competitor?.name}</span>
+                              {cp.competitor?.is_own_company && <span className="font-mono" style={{ fontSize: 8, background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid rgba(0,229,160,0.3)', padding: '1px 5px', borderRadius: 8, letterSpacing: '0.04em' }}>YOU</span>}
+                            </div>
                             <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cp.url}</div>
                           </div>
                           <div className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: cp.last_price ? 'var(--text)' : 'var(--text-muted)', minWidth: 70, textAlign: 'right' }}>

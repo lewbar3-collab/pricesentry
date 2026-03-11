@@ -10,7 +10,7 @@ export default async function HistoryPage() {
   // Fetch products with their competitor_products
   const { data: products } = await supabase
     .from('products')
-    .select('*, competitor_products(*, competitor:competitors(id, name, domain))')
+    .select('*, competitor_products(*, competitor:competitors(id, name, domain, is_own_company))')
     .eq('user_id', profile.id)
     .order('created_at', { ascending: false })
 
@@ -64,7 +64,7 @@ export default async function HistoryPage() {
         {products?.map((product, pi) => {
           const cps = (product.competitor_products ?? []) as {
             id: string; competitor_id: string; url: string; status: string; last_price: number | null;
-            competitor: { id: string; name: string; domain: string } | null
+            competitor: { id: string; name: string; domain: string; is_own_company?: boolean } | null
           }[]
 
           const competitorTabs = cps.map(cp => ({
@@ -73,6 +73,7 @@ export default async function HistoryPage() {
             domain: cp.competitor?.domain ?? '',
             status: cp.status,
             lastPrice: cp.last_price,
+            is_own_company: cp.competitor?.is_own_company ?? false,
             history: historyByCp[cp.id] ?? [],
           }))
 
