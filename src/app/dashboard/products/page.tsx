@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import type { Product, Competitor, CompetitorProduct } from '@/types'
 
 const TAG_COLOURS = [
@@ -193,27 +194,33 @@ export default function ProductsPage() {
     if (!file || !productId) return
     setUploadingId(productId)
     try {
-      // Read as base64 and send as JSON to avoid Next.js multipart body-size issues
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload  = () => resolve((reader.result as string).split(',')[1])
-        reader.onerror = reject
-        reader.readAsDataURL(file)
-      })
-      const ext = file.name.split('.').pop() ?? 'jpg'
+      // Upload directly browser → Supabase Storage, bypassing Next.js entirely
+      const supabase = createSupabaseClient()
+      const ext  = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+      const path = `public/${productId}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(path, file, { upsert: true, contentType: file.type })
+
+      if (uploadError) throw new Error(uploadError.message)
+
+      const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(path)
+
+      // Just persist the URL via API — no file goes through Next.js
       const res  = await fetch('/api/products/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_id: productId, data: base64, mime_type: file.type, ext }),
+        body: JSON.stringify({ product_id: productId, url: publicUrl }),
       })
       const data = await res.json()
       if (data.url) {
         setProducts(prev => prev.map(p => p.id === productId ? { ...p, image_url: data.url } : p))
       } else {
-        alert(`Image upload failed: ${data.error ?? 'Unknown error'}`)
+        throw new Error(data.error ?? 'Failed to save image URL')
       }
     } catch (err) {
-      alert(`Image upload failed: ${err instanceof Error ? err.message : 'Network error'}`)
+      alert('Image upload failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
     }
     setUploadingId(null); e.target.value = ''
   }
