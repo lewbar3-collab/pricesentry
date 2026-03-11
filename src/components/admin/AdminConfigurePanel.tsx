@@ -63,10 +63,14 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
           method,
         }),
       })
-      const result = await res.json()
-      setTestResult(result)
-    } catch {
-      setTestResult({ price: null, error: 'Request failed', duration_ms: 0, selector_used: null })
+      const data = await res.json()
+      if (!res.ok) {
+        setTestResult({ price: null, error: data.error ?? `HTTP ${res.status}`, duration_ms: 0, selector_used: null })
+      } else {
+        setTestResult(data)
+      }
+    } catch (err) {
+      setTestResult({ price: null, error: err instanceof Error ? err.message : 'Request failed', duration_ms: 0, selector_used: null })
     } finally {
       setTesting(false)
     }
