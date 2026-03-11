@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface CompetitorProduct {
   id: string
@@ -46,6 +46,18 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
   const [testResult, setTestResult]       = useState<TestResult | null>(null)
   const [saving, setSaving]               = useState(false)
   const [saved, setSaved]                 = useState(false)
+
+  // Reset all fields when the selected competitor changes
+  useEffect(() => {
+    setMethod((competitor?.scrape_method as 'fetch' | 'shopify_json' | 'playwright' | 'proxy') ?? 'fetch')
+    setSaleSelector(competitor?.sale_price_selector ?? '')
+    setRegularSelector(competitor?.price_selector ?? '')
+    setFrequency(competitor?.check_frequency_hours ?? 6)
+    setNotes(competitor?.notes ?? '')
+    setTestUrl(sampleProduct?.url ?? '')
+    setTestResult(null)
+    setSaved(false)
+  }, [competitor?.id])
 
   async function handleTest() {
     if (!testUrl) return

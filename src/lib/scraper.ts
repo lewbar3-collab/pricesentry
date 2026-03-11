@@ -83,7 +83,7 @@ async function scrapeShopifyJson(url: string, start: number): Promise<ScrapeResu
     return { price: null, raw: null, error: `Shopify JSON: HTTP ${response.status} — is this a Shopify product URL?`, duration_ms: Date.now() - start, method, selector_used: null }
   }
 
-  let json: { product?: { variants?: { id: number; price: string; compare_at_price: string | null }[] } }
+  let json: { product?: { variants?: { id: number; title: string; price: string; compare_at_price: string | null }[] } }
   try {
     json = await response.json()
   } catch {
@@ -95,15 +95,19 @@ async function scrapeShopifyJson(url: string, start: number): Promise<ScrapeResu
     return { price: null, raw: null, error: 'Shopify JSON: no variants found in response', duration_ms: Date.now() - start, method, selector_used: null }
   }
 
+  // Build a summary of all variants for debugging
+  const variantSummary = variants.map(v => `${v.title}: £${v.price}${v.compare_at_price ? ` (was £${v.compare_at_price})` : ''} [id:${v.id}]`).join(' | ')
+
   // If URL contains ?variant=ID, use that specific variant
   if (variantId) {
     const match = variants.find(v => String(v.id) === variantId)
     if (match) {
       const price = parseFloat(match.price)
       if (!isNaN(price)) {
-        return { price, raw: match.price, error: null, duration_ms: Date.now() - start, method, selector_used: `shopify_json:variant:${variantId}` }
+        return { price, raw: match.price, error: null, duration_ms: Date.now() - start, method, selector_used: `variant ${variantId} | all: ${variantSummary}` }
       }
     }
+    // Variant ID in URL not found — fall through to first variant
   }
 
   // No variant in URL — use the first variant (matches what storefront shows by default)
@@ -116,11 +120,11 @@ async function scrapeShopifyJson(url: string, start: number): Promise<ScrapeResu
       error: null,
       duration_ms: Date.now() - start,
       method,
-      selector_used: variants.length > 1 ? `shopify_json:first_variant (${variants.length} total)` : 'shopify_json',
+      selector_used: `first_variant | all: ${variantSummary}`,
     }
   }
 
-  return { price: null, raw: null, error: 'Shopify JSON: could not parse any variant prices', duration_ms: Date.now() - start, method, selector_used: null }
+  return { price: null, raw: null, error: `Shopify JSON: could not parse prices. Variants: ${variantSummary}`, duration_ms: Date.now() - start, method, selector_used: null }
 }
 
 async function fetchPage(url: string): Promise<string> {
