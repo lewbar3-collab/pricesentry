@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import type { Product, Competitor, CompetitorProduct } from '@/types'
+import type { Product, Competitor, CompetitorProduct, CatalogueEntry } from '@/types'
 
 const TAG_COLOURS = [
   { bg: 'rgba(0,229,160,0.12)',   text: 'var(--accent)',  border: 'rgba(0,229,160,0.25)' },
@@ -61,6 +61,12 @@ export default function ProductsPage() {
   const [cpUrl, setCpUrl]             = useState('')
   const [savingCp, setSavingCp]       = useState(false)
 
+  // Catalogue search (within the add-competitor flow)
+  const [catalogueResults, setCatalogueResults] = useState<{id:string;title:string;url:string;image_url:string|null;price_min:number|null}[]>([])
+  const [catalogueSearch, setCatalogueSearch]   = useState('')
+  const [catalogueLoading, setCatalogueLoading] = useState(false)
+  const [catalogueCounts, setCatalogueCounts]   = useState<Record<string,number>>({}) // competitorId -> count
+
   // Alert form (per competitor_product)
   const [alertFormFor, setAlertFormFor] = useState<string | null>(null)
   const [alertTrigger, setAlertTrigger] = useState<string>('any_change')
@@ -85,17 +91,44 @@ export default function ProductsPage() {
       fetch('/api/alerts').then(r => r.json()),
       fetch('/api/profile').then(r => r.json()).catch(() => ({ email: '' })),
     ]).then(([prods, comps, alts, prof]) => {
+      const compList = Array.isArray(comps) ? comps : []
       setProducts(Array.isArray(prods) ? prods : [])
-      setCompetitors(Array.isArray(comps) ? comps : [])
+      setCompetitors(compList)
       setAlerts(Array.isArray(alts) ? alts : [])
       setProfileEmail(prof?.email ?? '')
-      if (comps.length > 0) setCpCompetitorId(comps[0].id)
+      if (compList.length > 0) setCpCompetitorId(compList[0].id)
+      // Store catalogue product counts from competitor metadata
+      const counts: Record<string,number> = {}
+      compList.forEach((comp: Competitor) => { counts[comp.id] = (comp as any).catalogue_product_count ?? 0 })
+      setCatalogueCounts(counts)
       setLoading(false)
     })
   }, [])
 
   const categories = ['All', ...Array.from(new Set(products.map(p => p.category).filter(Boolean) as string[])).sort()]
   const filtered   = activeCategory === 'All' ? products : products.filter(p => p.category === activeCategory)
+
+  // ── Catalogue search ──────────────────────────────────────────────────────
+  async function searchCatalogue(competitorId: string, q: string) {
+    if (!competitorId) return
+    setCatalogueLoading(true)
+    const res = await fetch(`/api/catalogue?competitor_id=${competitorId}&q=${encodeURIComponent(q)}`)
+    const data = await res.json()
+    setCatalogueResults(Array.isArray(data) ? data : [])
+    setCatalogueLoading(false)
+  }
+
+  function openAddCompetitor(productId: string) {
+    setAddingCompetitorFor(addingCompetitorFor === productId ? null : productId)
+    const firstComp = competitors.filter(c => !c.is_own_company)[0]
+    if (firstComp) {
+      setCpCompetitorId(firstComp.id)
+      setCatalogueSearch('')
+      setCatalogueResults([])
+      searchCatalogue(firstComp.id, '')
+    }
+    setCpUrl('')
+  }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -205,7 +238,7 @@ export default function ProductsPage() {
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
-          <h1 className="font-display animate-fade-up" style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.8px', marginBottom: 5 }}>Products</h1>
+          <h1 className="font-display animate-fade-up" style={{ fontWeight: 800, fontSize: 26, letterSpacing: '-0.8px', marginBottom: 5 }}>Tracked Products</h1>
           <p className="animate-fade-up delay-100" style={{ fontSize: 13, color: 'var(--text-dim)' }}>Track competitor prices and set alerts per competitor</p>
         </div>
         <button onClick={() => setShowAddProduct(!showAddProduct)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 7, fontSize: 12.5, fontWeight: 600, background: 'var(--accent)', color: '#060810', border: 'none', cursor: 'pointer' }}>
@@ -306,8 +339,8 @@ export default function ProductsPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button onClick={() => { setAddingCompetitorFor(addingCompetitorFor === product.id ? null : product.id); if (competitors.length > 0) setCpCompetitorId(competitors[0].id); setCpUrl('') }} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 500, background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border-bright)', cursor: 'pointer' }}>
-                      ＋ Add Competitor URL
+                    <button onClick={() => openAddCompetitor(product.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 500, background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border-bright)', cursor: 'pointer' }}>
+                      ＋ Track Competitor Price
                     </button>
                     {deletingId === product.id ? (
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -324,27 +357,110 @@ export default function ProductsPage() {
 
               {/* Add competitor URL form */}
               {addingCompetitorFor === product.id && (
-                <div style={{ padding: '14px 18px', borderTop: '1px solid var(--border)', background: 'rgba(167,139,250,0.03)' }}>
-                  <div className="font-mono" style={{ fontSize: 10, color: 'var(--purple)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Assign competitor URL</div>
-                  {competitors.length === 0 ? (
+                <div style={{ padding: '16px 18px', borderTop: '1px solid var(--border)', background: 'rgba(167,139,250,0.02)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <div className="font-mono" style={{ fontSize: 10, color: 'var(--purple)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Track Competitor Price</div>
+                    <button onClick={() => setAddingCompetitorFor(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+                  </div>
+                  {competitors.filter(c => !c.is_own_company).length === 0 ? (
                     <p style={{ fontSize: 13, color: 'var(--amber)' }}>⚠️ <a href="/dashboard/competitors" style={{ color: 'var(--accent)' }}>Add a competitor</a> first.</p>
                   ) : (
                     <form onSubmit={e => handleAddCompetitorProduct(e, product.id)}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr auto', gap: 10, alignItems: 'flex-end' }}>
-                        <div>
-                          <label className="font-mono" style={{ display: 'block', fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>Competitor</label>
-                          <select value={cpCompetitorId} onChange={e => setCpCompetitorId(e.target.value)} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-bright)', borderRadius: 7, padding: '8px 10px', fontFamily: 'DM Mono, monospace', fontSize: 11.5, color: 'var(--text)', outline: 'none', appearance: 'none' }}>
-                            {competitors.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                          </select>
+                      {/* Competitor selector */}
+                      <div style={{ marginBottom: 12 }}>
+                        <label className="font-mono" style={{ display: 'block', fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>Competitor</label>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {competitors.filter(c => !c.is_own_company).map(comp => (
+                            <button
+                              key={comp.id}
+                              type="button"
+                              onClick={() => {
+                                setCpCompetitorId(comp.id)
+                                setCatalogueSearch('')
+                                setCatalogueResults([])
+                                searchCatalogue(comp.id, '')
+                                setCpUrl('')
+                              }}
+                              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 11px', borderRadius: 7, fontSize: 12, fontWeight: 500, background: cpCompetitorId === comp.id ? 'rgba(167,139,250,0.12)' : 'var(--surface2)', color: cpCompetitorId === comp.id ? 'var(--purple)' : 'var(--text-dim)', border: `1px solid ${cpCompetitorId === comp.id ? 'rgba(167,139,250,0.35)' : 'var(--border-bright)'}`, cursor: 'pointer', transition: 'all 0.12s' }}
+                            >
+                              {comp.name}
+                              {catalogueCounts[comp.id] > 0 && (
+                                <span className="font-mono" style={{ fontSize: 9, background: 'var(--accent-dim)', color: 'var(--accent)', padding: '0px 5px', borderRadius: 4 }}>
+                                  {catalogueCounts[comp.id]}
+                                </span>
+                              )}
+                            </button>
+                          ))}
                         </div>
-                        <div>
-                          <label className="font-mono" style={{ display: 'block', fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>Product URL on their site</label>
-                          <input value={cpUrl} onChange={e => setCpUrl(e.target.value)} required type="url" placeholder="https://competitor.co.uk/product" style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-bright)', borderRadius: 7, padding: '8px 10px', fontFamily: 'DM Mono, monospace', fontSize: 11.5, color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }} />
+                      </div>
+
+                      {/* Catalogue search (if catalogue exists for this competitor) */}
+                      {cpCompetitorId && catalogueCounts[cpCompetitorId] > 0 ? (
+                        <div style={{ marginBottom: 12 }}>
+                          <label className="font-mono" style={{ display: 'block', fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>
+                            Search Catalogue <span style={{ color: 'var(--accent)', opacity: 0.7 }}>({catalogueCounts[cpCompetitorId]} products)</span>
+                          </label>
+                          <input
+                            value={catalogueSearch}
+                            onChange={e => { setCatalogueSearch(e.target.value); searchCatalogue(cpCompetitorId, e.target.value) }}
+                            placeholder="Search by product name..."
+                            style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border-bright)', borderRadius: 7, padding: '8px 10px', fontFamily: 'DM Mono, monospace', fontSize: 11.5, color: 'var(--text)', outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}
+                          />
+                          {/* Results */}
+                          <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg)' }}>
+                            {catalogueLoading ? (
+                              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>Searching...</div>
+                            ) : catalogueResults.length === 0 ? (
+                              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>No products found</div>
+                            ) : (
+                              catalogueResults.map(entry => (
+                                <div
+                                  key={entry.id}
+                                  onClick={() => setCpUrl(entry.url)}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', background: cpUrl === entry.url ? 'rgba(167,139,250,0.07)' : 'transparent', transition: 'background 0.1s' }}
+                                >
+                                  {entry.image_url ? (
+                                    <img src={entry.image_url} alt={entry.title} style={{ width: 30, height: 30, borderRadius: 5, objectFit: 'cover', flexShrink: 0 }} />
+                                  ) : (
+                                    <div style={{ width: 30, height: 30, borderRadius: 5, background: 'var(--surface2)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>📦</div>
+                                  )}
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 12, fontWeight: cpUrl === entry.url ? 600 : 400, color: cpUrl === entry.url ? 'var(--purple)' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.title}</div>
+                                    {entry.price_min !== null && (
+                                      <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>£{Number(entry.price_min).toFixed(2)}</div>
+                                    )}
+                                  </div>
+                                  {cpUrl === entry.url && <span style={{ color: 'var(--purple)', fontSize: 14, flexShrink: 0 }}>✓</span>}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                          {cpUrl && (
+                            <div className="font-mono" style={{ fontSize: 10, color: 'var(--accent)', marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              ✓ Selected: {cpUrl}
+                            </div>
+                          )}
                         </div>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button type="button" onClick={() => setAddingCompetitorFor(null)} style={{ padding: '8px 12px', borderRadius: 7, background: 'var(--surface2)', color: 'var(--text-muted)', fontSize: 12, border: '1px solid var(--border)', cursor: 'pointer' }}>Cancel</button>
-                          <button type="submit" disabled={savingCp} style={{ padding: '8px 16px', borderRadius: 7, background: 'var(--purple-dim)', color: 'var(--purple)', fontWeight: 600, fontSize: 12, border: '1px solid rgba(167,139,250,0.25)', cursor: 'pointer' }}>{savingCp ? 'Adding...' : 'Submit'}</button>
+                      ) : (
+                        /* Manual URL fallback */
+                        <div style={{ marginBottom: 12 }}>
+                          <label className="font-mono" style={{ display: 'block', fontSize: 9.5, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>Product URL</label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                            <input value={cpUrl} onChange={e => setCpUrl(e.target.value)} required type="url" placeholder="https://competitor.co.uk/products/example" style={{ flex: 1, background: 'var(--bg)', border: '1px solid var(--border-bright)', borderRadius: 7, padding: '8px 10px', fontFamily: 'DM Mono, monospace', fontSize: 11.5, color: 'var(--text)', outline: 'none' }} />
+                          </div>
+                          {catalogueCounts[cpCompetitorId] === 0 && (
+                            <p className="font-mono" style={{ fontSize: 10, color: 'var(--amber)', margin: 0 }}>
+                              💡 No catalogue imported for this competitor — <a href="/dashboard/catalogue" style={{ color: 'var(--accent)' }}>import one</a> to enable product search
+                            </p>
+                          )}
                         </div>
+                      )}
+
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <button type="button" onClick={() => setAddingCompetitorFor(null)} style={{ padding: '8px 14px', borderRadius: 7, background: 'var(--surface2)', color: 'var(--text-muted)', fontSize: 12, border: '1px solid var(--border)', cursor: 'pointer' }}>Cancel</button>
+                        <button type="submit" disabled={savingCp || !cpUrl} style={{ padding: '8px 18px', borderRadius: 7, background: cpUrl ? 'var(--accent)' : 'var(--surface2)', color: cpUrl ? '#060810' : 'var(--text-muted)', fontWeight: 600, fontSize: 12, border: 'none', cursor: cpUrl ? 'pointer' : 'not-allowed' }}>
+                          {savingCp ? 'Adding...' : 'Track Product'}
+                        </button>
                       </div>
                     </form>
                   )}
@@ -472,7 +588,7 @@ export default function ProductsPage() {
 
               {(product.competitor_products?.length ?? 0) === 0 && addingCompetitorFor !== product.id && (
                 <div style={{ padding: '14px 18px', borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace' }}>
-                  No competitor URLs yet — click "Add Competitor URL" to start tracking
+                  No prices tracked yet — click "Track Competitor Price" to start
                 </div>
               )}
             </div>

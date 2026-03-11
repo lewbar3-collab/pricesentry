@@ -28,6 +28,10 @@ export interface Competitor {
   free_delivery_threshold: number | null
   min_order_qty: number | null
   is_own_company: boolean
+  catalogue_url: string | null
+  catalogue_schedule: 'daily' | 'weekly' | null
+  catalogue_last_scraped_at: string | null
+  catalogue_product_count: number
 }
 
 // YOUR product — what you sell
@@ -99,4 +103,17 @@ export interface ScrapeJob {
   duration_ms: number | null
   created_at: string
   competitor_product?: CompetitorProduct & { product?: Product }
+}
+
+export interface CatalogueEntry {
+  id: string
+  competitor_id: string
+  user_id: string
+  title: string
+  url: string
+  handle: string | null
+  image_url: string | null
+  price_min: number | null
+  price_max: number | null
+  scraped_at: string
 }

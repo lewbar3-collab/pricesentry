@@ -15,7 +15,8 @@ const clientNav = [
   { label: 'Price History', href: '/dashboard/history', icon: '📊' },
   { label: 'Landed Cost Sim.', href: '/dashboard/simulator', icon: '🧮' },
   { label: 'Competitors', href: '/dashboard/competitors', icon: '🏢' },
-  { label: 'Products', href: '/dashboard/products', icon: '📦' },
+  { label: 'Tracked Products', href: '/dashboard/products', icon: '📦' },
+  { label: 'Catalogue', href: '/dashboard/catalogue', icon: '🗂️' },
   { label: 'Team', href: '/dashboard/team', icon: '👥' },
   { label: 'Settings', href: '/dashboard/settings', icon: '⚙️' },
 ]
