@@ -64,9 +64,10 @@ export async function scrapePrice(
 async function scrapeShopifyJson(url: string, start: number): Promise<ScrapeResult> {
   const method = 'shopify_json'
 
-  // Normalise URL — strip query/hash, ensure it ends with .json
+  // Normalise URL — build .json path, preserve variant query param
   const parsed = new URL(url)
-  let path = parsed.pathname.replace(/\/$/, '').replace(/\.json$/, '')
+  const variantId = parsed.searchParams.get('variant')
+  const path = parsed.pathname.replace(/\/$/, '').replace(/\.json$/, '')
   const jsonUrl = `${parsed.origin}${path}.json`
 
   const response = await fetch(jsonUrl, {
@@ -82,7 +83,7 @@ async function scrapeShopifyJson(url: string, start: number): Promise<ScrapeResu
     return { price: null, raw: null, error: `Shopify JSON: HTTP ${response.status} — is this a Shopify product URL?`, duration_ms: Date.now() - start, method, selector_used: null }
   }
 
-  let json: { product?: { variants?: { price: string; compare_at_price: string | null }[] } }
+  let json: { product?: { variants?: { id: number; price: string; compare_at_price: string | null }[] } }
   try {
     json = await response.json()
   } catch {
@@ -94,28 +95,32 @@ async function scrapeShopifyJson(url: string, start: number): Promise<ScrapeResu
     return { price: null, raw: null, error: 'Shopify JSON: no variants found in response', duration_ms: Date.now() - start, method, selector_used: null }
   }
 
-  // Find the lowest active price across all variants
-  // compare_at_price = original price (set when on sale), price = current price
-  let lowestPrice: number | null = null
-  for (const variant of variants) {
-    const current = parseFloat(variant.price)
-    if (!isNaN(current) && (lowestPrice === null || current < lowestPrice)) {
-      lowestPrice = current
+  // If URL contains ?variant=ID, use that specific variant
+  if (variantId) {
+    const match = variants.find(v => String(v.id) === variantId)
+    if (match) {
+      const price = parseFloat(match.price)
+      if (!isNaN(price)) {
+        return { price, raw: match.price, error: null, duration_ms: Date.now() - start, method, selector_used: `shopify_json:variant:${variantId}` }
+      }
     }
   }
 
-  if (lowestPrice === null) {
-    return { price: null, raw: null, error: 'Shopify JSON: could not parse any variant prices', duration_ms: Date.now() - start, method, selector_used: null }
+  // No variant in URL — use the first variant (matches what storefront shows by default)
+  const first = variants[0]
+  const firstPrice = parseFloat(first.price)
+  if (!isNaN(firstPrice)) {
+    return {
+      price: firstPrice,
+      raw: first.price,
+      error: null,
+      duration_ms: Date.now() - start,
+      method,
+      selector_used: variants.length > 1 ? `shopify_json:first_variant (${variants.length} total)` : 'shopify_json',
+    }
   }
 
-  return {
-    price: lowestPrice,
-    raw: lowestPrice.toString(),
-    error: null,
-    duration_ms: Date.now() - start,
-    method,
-    selector_used: 'shopify_json',
-  }
+  return { price: null, raw: null, error: 'Shopify JSON: could not parse any variant prices', duration_ms: Date.now() - start, method, selector_used: null }
 }
 
 async function fetchPage(url: string): Promise<string> {
