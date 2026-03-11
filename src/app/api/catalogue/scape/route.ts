@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { requireClient } from '@/lib/auth'
+import { getProfile } from '@/lib/auth'
 
-export const maxDuration = 60 // allow up to 60s for large catalogues
+export const maxDuration = 60
 
 interface ShopifyProduct {
   id: number
@@ -17,15 +17,16 @@ function normaliseOrigin(raw: string): string {
   return new URL(withScheme).origin
 }
 
-async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
+async function fetchPage(url: string): Promise<Response> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), ms)
+  const timer = setTimeout(() => controller.abort(), 20000)
   try {
     return await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; PriceSentry/1.0)',
         'Accept': 'application/json',
         'Cache-Control': 'no-cache',
+        'CF-IPCountry': 'GB',
       },
       cache: 'no-store',
       signal: controller.signal,
@@ -44,15 +45,26 @@ async function scrapeShopifyProducts(storeUrl: string): Promise<ShopifyProduct[]
     let res: Response
 
     try {
-      res = await fetchWithTimeout(endpoint, 20000)
+      res = await fetchPage(endpoint)
     } catch (err: unknown) {
-      // Timeout or DNS failure on page 1 = real error, later pages = just stop
-      if (page === 1) throw new Error(`Could not reach ${origin} — check the URL is correct and the store is live`)
+      if (page === 1) {
+        const msg = err instanceof Error && err.name === 'AbortError'
+          ? `Timed out connecting to ${origin}`
+          : `Could not reach ${origin} — check the URL is correct`
+        throw new Error(msg)
+      }
       break
     }
 
     if (!res.ok) {
-      if (page === 1) throw new Error(`Store returned ${res.status} — is this a Shopify store?`)
+      if (page === 1) throw new Error(`${origin} returned HTTP ${res.status} — is this a Shopify store?`)
+      break
+    }
+
+    // Check content-type before parsing — non-Shopify sites return HTML
+    const ct = res.headers.get('content-type') ?? ''
+    if (!ct.includes('json')) {
+      if (page === 1) throw new Error(`${origin}/products.json returned HTML, not JSON — this doesn't appear to be a Shopify store`)
       break
     }
 
@@ -60,13 +72,12 @@ async function scrapeShopifyProducts(storeUrl: string): Promise<ShopifyProduct[]
     try {
       json = await res.json()
     } catch {
-      if (page === 1) throw new Error('Store did not return valid JSON — not a Shopify store?')
+      if (page === 1) throw new Error('Could not parse response — not a Shopify store?')
       break
     }
 
     const products = json.products ?? []
     if (products.length === 0) break
-
     all.push(...products)
     if (products.length < 250) break
   }
@@ -74,15 +85,12 @@ async function scrapeShopifyProducts(storeUrl: string): Promise<ShopifyProduct[]
   return all
 }
 
-// POST /api/catalogue/scrape
 export async function POST(req: NextRequest) {
-  // Auth runs OUTSIDE the main try/catch so redirect() can propagate normally
-  // (Next.js redirect() throws a special non-Error that try/catch would swallow)
-  const profile  = await requireClient()
-  const supabase = await createAdminClient()
-  const ownerId  = profile.ownerId ?? profile.id
-
   try {
+    const profile = await getProfile()
+    if (!profile) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+    const ownerId = profile.ownerId ?? profile.id
+
     let body: { competitor_id?: string; store_url?: string }
     try {
       body = await req.json()
@@ -95,17 +103,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'competitor_id and store_url are required' }, { status: 400 })
     }
 
-    // Verify competitor belongs to this user
+    const supabase = await createAdminClient()
+
     const { data: comp } = await supabase
       .from('competitors')
-      .select('id, domain')
+      .select('id')
       .eq('id', competitor_id)
       .eq('user_id', ownerId)
       .single()
-
     if (!comp) return NextResponse.json({ error: 'Competitor not found' }, { status: 404 })
 
-    // Scrape
     let products: ShopifyProduct[]
     try {
       products = await scrapeShopifyProducts(store_url)
@@ -115,19 +122,12 @@ export async function POST(req: NextRequest) {
 
     if (products.length === 0) {
       return NextResponse.json(
-        { error: 'No products found — make sure this is a Shopify store URL (e.g. wetwall.co.uk)' },
+        { error: 'No products found — make sure this is a Shopify store URL' },
         { status: 422 }
       )
     }
 
-    // Build upsert rows
-    let storeOrigin: string
-    try {
-      storeOrigin = normaliseOrigin(store_url)
-    } catch {
-      return NextResponse.json({ error: 'Invalid store URL' }, { status: 400 })
-    }
-
+    const storeOrigin = normaliseOrigin(store_url)
     const rows = products.map(p => {
       const prices = (p.variants ?? []).map(v => parseFloat(v.price)).filter(n => !isNaN(n))
       return {
@@ -143,16 +143,13 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    // Upsert in batches of 500 to avoid payload limits
-    const BATCH = 500
-    for (let i = 0; i < rows.length; i += BATCH) {
+    for (let i = 0; i < rows.length; i += 500) {
       const { error } = await supabase
         .from('competitor_catalogue')
-        .upsert(rows.slice(i, i + BATCH), { onConflict: 'competitor_id,url' })
+        .upsert(rows.slice(i, i + 500), { onConflict: 'competitor_id,url' })
       if (error) return NextResponse.json({ error: `DB error: ${error.message}` }, { status: 500 })
     }
 
-    // Update competitor metadata
     await supabase
       .from('competitors')
       .update({
@@ -165,10 +162,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ count: products.length, ok: true })
 
   } catch (err) {
-    // Catch-all so the route always returns JSON, never a 500 HTML page
-    console.error('[catalogue/scrape] unhandled error:', err)
+    console.error('[catalogue/scrape] unhandled:', err)
     return NextResponse.json(
-      { error: `Unexpected error: ${(err as Error).message ?? 'unknown'}` },
+      { error: `Server error: ${err instanceof Error ? err.message : 'unknown'}` },
       { status: 500 }
     )
   }

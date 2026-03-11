@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { requireClient } from '@/lib/auth'
+import { getProfile } from '@/lib/auth'
 
 // GET /api/catalogue?competitor_id=X&q=search
 export async function GET(req: NextRequest) {
-  const profile  = await requireClient()
+  const profile = await getProfile()
+  if (!profile) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const supabase = await createAdminClient()
   const ownerId  = profile.ownerId ?? profile.id
 
@@ -31,7 +32,8 @@ export async function GET(req: NextRequest) {
 
 // PATCH /api/catalogue — update schedule for a competitor
 export async function PATCH(req: NextRequest) {
-  const profile  = await requireClient()
+  const profile = await getProfile()
+  if (!profile) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const supabase = await createAdminClient()
   const ownerId  = profile.ownerId ?? profile.id
   const { competitor_id, catalogue_schedule } = await req.json()
