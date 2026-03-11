@@ -48,7 +48,8 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
   const [saved, setSaved]                 = useState(false)
 
   async function handleTest() {
-    if (!testUrl || (!saleSelector && !regularSelector)) return
+    if (!testUrl) return
+    if (method !== 'shopify_json' && !saleSelector && !regularSelector) return
     setTesting(true)
     setTestResult(null)
     try {
