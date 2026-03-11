@@ -109,8 +109,9 @@ export default function CataloguePage() {
       } else {
         setScrapeResult(prev => ({ ...prev, [comp.id]: { error: data.error } }))
       }
-    } catch {
-      setScrapeResult(prev => ({ ...prev, [comp.id]: { error: 'Network error' } }))
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Network error — check the URL and try again'
+      setScrapeResult(prev => ({ ...prev, [comp.id]: { error: msg } }))
     }
     setScraping(prev => ({ ...prev, [comp.id]: false }))
   }
