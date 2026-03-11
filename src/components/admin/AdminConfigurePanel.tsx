@@ -252,8 +252,10 @@ export default function AdminConfigurePanel({ competitor, sampleProduct }: Props
                 <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
                   Extracted in {testResult.duration_ms}ms · {method}
                   {testResult.selector_used && (
-                    <span style={{ marginLeft: 8, color: testResult.selector_used === saleSelector ? 'var(--accent)' : 'var(--text-muted)' }}>
-                      · used {testResult.selector_used === saleSelector ? 'sale' : 'regular'} selector
+                    <span style={{ marginLeft: 8, color: testResult.selector_used.startsWith('shopify_json') ? 'var(--purple)' : testResult.selector_used === saleSelector ? 'var(--accent)' : 'var(--text-muted)' }}>
+                      {testResult.selector_used.startsWith('shopify_json')
+                        ? ` · ${testResult.selector_used.replace('shopify_json:', '').replace('first_variant', 'first variant')}`
+                        : ` · used ${testResult.selector_used === saleSelector ? 'sale' : 'regular'} selector`}
                     </span>
                   )}
                 </div>
