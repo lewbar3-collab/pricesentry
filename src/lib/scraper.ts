@@ -68,15 +68,17 @@ async function scrapeShopifyJson(url: string, start: number): Promise<ScrapeResu
   const parsed = new URL(url)
   const variantId = parsed.searchParams.get('variant')
   const path = parsed.pathname.replace(/\/$/, '').replace(/\.json$/, '')
-  const jsonUrl = `${parsed.origin}${path}.json`
+  const jsonUrl = `${parsed.origin}${path}.json?t=${Date.now()}`
 
   const response = await fetch(jsonUrl, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': 'en-GB,en;q=0.9',
+      'Cache-Control': 'no-cache, no-store',
+      'Pragma': 'no-cache',
     },
-    next: { revalidate: 0 },
+    cache: 'no-store',
   })
 
   if (!response.ok) {
