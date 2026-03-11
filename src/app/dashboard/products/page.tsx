@@ -192,10 +192,18 @@ export default function ProductsPage() {
     const file = e.target.files?.[0]; const productId = uploadForId.current
     if (!file || !productId) return
     setUploadingId(productId)
-    const form = new FormData(); form.append('file', file); form.append('product_id', productId)
-    const res  = await fetch('/api/products/upload', { method: 'POST', body: form })
-    const data = await res.json()
-    if (data.url) setProducts(prev => prev.map(p => p.id === productId ? { ...p, image_url: data.url } : p))
+    try {
+      const form = new FormData(); form.append('file', file); form.append('product_id', productId)
+      const res  = await fetch('/api/products/upload', { method: 'POST', body: form })
+      const data = await res.json()
+      if (data.url) {
+        setProducts(prev => prev.map(p => p.id === productId ? { ...p, image_url: data.url } : p))
+      } else {
+        alert(`Image upload failed: ${data.error ?? 'Unknown error'}`)
+      }
+    } catch (err) {
+      alert(`Image upload failed: ${err instanceof Error ? err.message : 'Network error'}`)
+    }
     setUploadingId(null); e.target.value = ''
   }
 
