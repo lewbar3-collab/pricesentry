@@ -76,11 +76,13 @@ async function scrapeShopifyProducts(storeUrl: string): Promise<ShopifyProduct[]
 
 // POST /api/catalogue/scrape
 export async function POST(req: NextRequest) {
-  try {
-    const profile  = await requireClient()
-    const supabase = await createAdminClient()
-    const ownerId  = profile.ownerId ?? profile.id
+  // Auth runs OUTSIDE the main try/catch so redirect() can propagate normally
+  // (Next.js redirect() throws a special non-Error that try/catch would swallow)
+  const profile  = await requireClient()
+  const supabase = await createAdminClient()
+  const ownerId  = profile.ownerId ?? profile.id
 
+  try {
     let body: { competitor_id?: string; store_url?: string }
     try {
       body = await req.json()
