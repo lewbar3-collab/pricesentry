@@ -1,27 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { getProfile } from '@/lib/auth'
+import { requireClient } from '@/lib/auth'
+
+export const config = {
+  api: { bodyParser: false },
+}
+
+// Increase Vercel function body size limit
+export const maxDuration = 30
 
 export async function POST(req: NextRequest) {
   try {
-    const profile = await getProfile()
-    if (!profile) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
-
+    const profile  = await requireClient()
     const supabase = await createAdminClient()
     const ownerId  = profile.ownerId ?? profile.id
 
-    let formData: FormData
-    try {
-      formData = await req.formData()
-    } catch {
-      return NextResponse.json({ error: 'Invalid form data' }, { status: 400 })
-    }
-
+    const formData  = await req.formData()
     const file      = formData.get('file') as File | null
     const productId = formData.get('product_id') as string | null
 
     if (!file || !productId) {
       return NextResponse.json({ error: 'Missing file or product_id' }, { status: 400 })
+    }
+
+    // Check file size (4MB limit)
+    if (file.size > 4 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Image must be under 4MB' }, { status: 413 })
     }
 
     // Verify product belongs to this user
@@ -34,15 +38,22 @@ export async function POST(req: NextRequest) {
 
     if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 })
 
+    // Convert File to ArrayBuffer → Buffer for Supabase storage
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer      = Buffer.from(arrayBuffer)
+
     const ext  = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
     const path = `${ownerId}/${productId}.${ext}`
 
     const { error: uploadError } = await supabase.storage
       .from('product-images')
-      .upload(path, file, { upsert: true, contentType: file.type })
+      .upload(path, buffer, {
+        upsert:      true,
+        contentType: file.type || `image/${ext}`,
+      })
 
     if (uploadError) {
-      console.error('[products/upload] storage error:', uploadError)
+      console.error('[upload] storage error:', uploadError.message)
       return NextResponse.json({ error: uploadError.message }, { status: 500 })
     }
 
@@ -58,9 +69,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: publicUrl })
 
   } catch (err) {
-    console.error('[products/upload] unhandled:', err)
+    console.error('[upload] unhandled:', err)
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Unknown error' },
+      { error: err instanceof Error ? err.message : 'Unknown server error' },
       { status: 500 }
     )
   }
